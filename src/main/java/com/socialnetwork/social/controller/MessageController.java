@@ -1,11 +1,12 @@
-package com.socialnetwork.social.controller;
+package com.socialnetwork.social.controller; // نام پکیج اصلی خود را جایگزین کنید
 
-import com.socialnetwork.social.dto.ChatMessage;
-import com.socialnetwork.social.service.MessageService;
+import com.socialnetwork.social.dto.ChatMessage; // مسیر کلاس DTO خود را چک کنید
+import com.socialnetwork.social.service.MessageService; // سرویسی که در گام هشتم ساختید
+import com.socialnetwork.social.session.UserSessionRegistry;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
@@ -13,28 +14,33 @@ import java.security.Principal;
 @Controller
 public class MessageController {
 
-    private final SimpMessagingTemplate messagingTemplate;
-    private final MessageService messageService;
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @Autowired
-    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService) {
-        this.messagingTemplate = messagingTemplate;
-        this.messageService = messageService;
-    }
+    private UserSessionRegistry sessionRegistry;
 
-    @MessageMapping("/chat.send")
+    @Autowired
+    private MessageService messageService; // برای ذخیره در دیتابیس
+
+    @MessageMapping("/chat")
     public void processMessage(@Payload ChatMessage chatMessage, Principal principal) {
-        // نام فرستنده را به جای دیتای کلاینت، از توکن معتبر استخراج می‌کنیم
-        String senderName = principal.getName();
-        chatMessage.setSender(senderName);
+        // نام فرستنده از روی توکن امنیتی برداشته می‌شود نه از پیام کلاینت
+        String sender = principal.getName();
+        chatMessage.setSender(sender);
 
-        // ذخیره در دیتابیس
-        messageService.saveMessage(chatMessage);
+        String recipient = chatMessage.getRecipient();
 
-        // ارسال برای گیرنده
-        messagingTemplate.convertAndSend(
-                "/topic/messages/" + chatMessage.getRecipient(),
-                chatMessage
-        );
+        if (sessionRegistry.isUserOnline(recipient)) {
+            // گیرنده آنلاین است -> ارسال مستقیم به کلاینت وب‌سوکت او
+            System.out.println("Direct send to online user: " + recipient);
+            messagingTemplate.convertAndSendToUser(
+                    recipient, "/queue/messages", chatMessage);
+        } else {
+            // گیرنده آفلاین است -> ذخیره در دیتابیس
+            System.out.println("User offline. Saving message in DB for: " + recipient);
+            // فرض می‌کنیم متد saveMessage در MessageService این کار را می‌کند
+            messageService.saveMessage(chatMessage);
+        }
     }
 }
