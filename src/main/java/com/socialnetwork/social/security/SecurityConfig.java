@@ -1,26 +1,37 @@
 package com.socialnetwork.social.security;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Autowired
+    private JwtAuthenticationFilter jwtRequestFilter;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable) // غیرفعال کردن CSRF برای APIها
+                .csrf(AbstractHttpConfigurer::disable)
+                // تنظیم کانتکست روی حالت Stateless (بدون وضعیت) چون از توکن استفاده می‌کنیم
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // مسیرهایی که نیاز به توکن ندارند:
+                        // مسیرهای عمومی (بدون نیاز به توکن)
                         .requestMatchers("/api/users/register", "/api/users/login", "/ws-chat/**").permitAll()
-                        // بقیه مسیرها نیاز به احراز هویت دارند:
+                        // تمام مسیرهای دیگر باید احراز هویت شوند
                         .anyRequest().authenticated()
                 );
+
+        // اضافه کردن فیلتر سفارشی ما قبل از فیلتر پیش‌فرض احراز هویت اسپرینگ
+        http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
