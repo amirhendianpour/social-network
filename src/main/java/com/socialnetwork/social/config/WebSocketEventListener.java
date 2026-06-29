@@ -1,5 +1,6 @@
 package com.socialnetwork.social.config; // نام پکیج اصلی خود را جایگزین کنید
 
+import com.socialnetwork.social.dto.ChatMessage;
 import com.socialnetwork.social.entity.Message;
 import com.socialnetwork.social.service.MessageService;
 import com.socialnetwork.social.session.UserSessionRegistry;
@@ -52,9 +53,9 @@ public class WebSocketEventListener {
             String username = userPrincipal.getName();
 
             // حالا که کلاینت ۱۰۰٪ آماده شنیدن است، پیام‌ها را از دیتابیس می‌کشیم و می‌فرستیم
-            List<Message> pendingMessages = messageService.getAndClearOfflineMessages(username);
+            List<ChatMessage> pendingMessages = messageService.getUnreadMessages(username);
 
-            for (Message msg : pendingMessages) {
+            for (ChatMessage msg : pendingMessages) {
                 messagingTemplate.convertAndSendToUser(
                         username,
                         "/queue/messages",

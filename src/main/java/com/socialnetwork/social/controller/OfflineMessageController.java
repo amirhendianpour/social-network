@@ -1,6 +1,6 @@
 package com.socialnetwork.social.controller;
 
-import com.socialnetwork.social.entity.Message;
+import com.socialnetwork.social.dto.ChatMessage;
 import com.socialnetwork.social.service.MessageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,8 +21,8 @@ public class OfflineMessageController {
 
     // این API توسط اپلیکیشن موبایل در زمان باز شدن فراخوانی می‌شود
     @GetMapping("/{username}")
-    public ResponseEntity<List<Message>> getOfflineMessages(@PathVariable String username) {
-        List<Message> pendingMessages = messageService.getAndClearOfflineMessages(username);
+    public ResponseEntity<List<ChatMessage>> getOfflineMessages(@PathVariable String username) {
+        List<ChatMessage> pendingMessages = messageService.getUnreadMessages(username);
         return ResponseEntity.ok(pendingMessages);
     }
 }

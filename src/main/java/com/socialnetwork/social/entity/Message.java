@@ -11,6 +11,9 @@ public class Message {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // اضافه شدن فیلد برای ذخیره شناسه منحصر‌به‌فرد کلاینت (مثلاً UUID)
+    private String clientMessageId;
+
     private String sender;
     private String recipient;
 
@@ -21,12 +24,16 @@ public class Message {
 
     public Message() {}
 
-    public Message(String sender, String recipient, String content) {
+    public Message(String clientMessageId, String sender, String recipient, String content) {
+        this.clientMessageId = clientMessageId;
         this.sender = sender;
         this.recipient = recipient;
         this.content = content;
         this.timestamp = LocalDateTime.now(); // زمان ثبت پیام
     }
+
+    public String getClientMessageId() { return clientMessageId; }
+    public void setClientMessageId(String clientMessageId) { this.clientMessageId = clientMessageId; }
 
     // Getter ها و Setter ها
     public Long getId() { return id; }

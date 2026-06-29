@@ -5,8 +5,10 @@ import com.socialnetwork.social.entity.Message;
 import com.socialnetwork.social.repository.MessageRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class MessageService {
@@ -21,6 +23,7 @@ public class MessageService {
     // ذخیره پیام جدید در دیتابیس
     public void saveMessage(ChatMessage chatMessage) {
         Message message = new Message(
+                chatMessage.getId(), // ذخیره شناسه کلاینت (UUID)
                 chatMessage.getSender(),
                 chatMessage.getRecipient(),
                 chatMessage.getContent()
@@ -28,15 +31,36 @@ public class MessageService {
         messageRepository.save(message);
     }
 
-    // دریافت پیام‌های کاربر و پاک کردن آن‌ها از سرور (رفتار شبیه سیگنال)
-    public List<Message> getAndClearOfflineMessages(String username) {
+    // واکشی پیام‌ها و تبدیل آنها به DTO همراه با شناسه اصلی کلاینت
+    @Transactional
+    public List<ChatMessage> getUnreadMessages(String username) {
+
         List<Message> messages = messageRepository.findByRecipient(username);
 
-        // بعد از اینکه پیام‌ها را برای کاربر آماده کردیم، آن‌ها را از دیتابیس حذف می‌کنیم
+        List<ChatMessage> result = messages.stream()
+                .map(msg -> {
+                    ChatMessage dto = new ChatMessage();
+                    dto.setId(msg.getClientMessageId());
+                    dto.setSender(msg.getSender());
+                    dto.setRecipient(msg.getRecipient());
+                    dto.setContent(msg.getContent());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
         if (!messages.isEmpty()) {
             messageRepository.deleteAll(messages);
         }
 
-        return messages;
+        return result;
     }
+
+    @Transactional
+    public void markAsRead(String username) {
+        List<Message> messages = messageRepository.findByRecipient(username);
+        if (!messages.isEmpty()) {
+            messageRepository.deleteAll(messages);
+        }
+    }
+
 }
