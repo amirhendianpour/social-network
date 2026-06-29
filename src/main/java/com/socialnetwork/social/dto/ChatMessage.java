@@ -1,11 +1,15 @@
 package com.socialnetwork.social.dto;
 
 public class ChatMessage {
+    private String id;
     private String sender;
     private String recipient;
     private String content;
 
     public ChatMessage() {}
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
     public ChatMessage(String sender, String recipient, String content) {
         this.sender = sender;

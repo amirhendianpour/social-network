@@ -1,6 +1,7 @@
 package com.socialnetwork.social.controller; // نام پکیج اصلی خود را جایگزین کنید
 
 import com.socialnetwork.social.dto.ChatMessage; // مسیر کلاس DTO خود را چک کنید
+import com.socialnetwork.social.dto.MessageReceipt;
 import com.socialnetwork.social.service.MessageService; // سرویسی که در گام هشتم ساختید
 import com.socialnetwork.social.session.UserSessionRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,27 @@ public class MessageController {
             System.out.println("User offline. Saving message in DB for: " + recipient);
             // فرض می‌کنیم متد saveMessage در MessageService این کار را می‌کند
             messageService.saveMessage(chatMessage);
+        }
+    }
+    // --- مسیر جدید برای دریافت و هدایت رسیدها (تیک‌ها) ---
+    @MessageMapping("/chat/receipt")
+    public void processReceipt(@Payload MessageReceipt receipt, Principal principal) {
+        // کسی که این رسید را می‌فرستد از روی توکنش احراز هویت می‌شود
+        receipt.setSender(principal.getName());
+
+        // کسی که باید تیک‌ها را ببیند
+        String originalSender = receipt.getRecipient();
+
+        // آیا فرستنده اصلی آنلاین است که تیک‌ها را الان ببیند؟
+        if (sessionRegistry.isUserOnline(originalSender)) {
+            System.out.println("Sending " + receipt.getStatus() + " receipt to: " + originalSender);
+            // ارسال رسید به صف اختصاصی دریافت تیک‌ها
+            messagingTemplate.convertAndSendToUser(
+                    originalSender, "/queue/receipts", receipt);
+        } else {
+            // اگر فرستنده اصلی آفلاین بود، فعلا لاگ می‌اندازیم.
+            // در معماری پیشرفته می‌توانید این رسیدها را هم در دیتابیس ذخیره کنید تا بعدا ببیند.
+            System.out.println("کاربر " + originalSender + " آفلاین است. امکان نمایش تیک در حال حاضر وجود ندارد.");
         }
     }
 }
