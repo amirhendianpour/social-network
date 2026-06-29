@@ -14,14 +14,17 @@ import java.security.Principal;
 @Controller
 public class MessageController {
 
+    private final SimpMessagingTemplate messagingTemplate;
+    private final MessageService messageService;
+
     @Autowired
-    private SimpMessagingTemplate messagingTemplate;
+    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService) {
+        this.messagingTemplate = messagingTemplate;
+        this.messageService = messageService;
+    }
 
     @Autowired
     private UserSessionRegistry sessionRegistry;
-
-    @Autowired
-    private MessageService messageService; // برای ذخیره در دیتابیس
 
     @MessageMapping("/chat")
     public void processMessage(@Payload ChatMessage chatMessage, Principal principal) {
