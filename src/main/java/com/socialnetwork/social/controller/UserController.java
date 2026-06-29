@@ -6,6 +6,10 @@ import com.socialnetwork.social.security.JwtUtil;
 import com.socialnetwork.social.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import com.socialnetwork.social.dto.ContactSyncRequest;
+import com.socialnetwork.social.dto.ContactResponse;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
@@ -55,5 +59,24 @@ public class UserController {
         } else {
             return ResponseEntity.status(401).body("کاربری با این شماره یافت نشد!");
         }
+    }
+
+    // این مسیر توسط فیلتر امنیتی JWT محافظت می‌شود، پس فقط کاربران لاگین‌کرده می‌توانند فراخوانی کنند
+    @PostMapping("/contacts/sync")
+    public ResponseEntity<List<ContactResponse>> syncContacts(@RequestBody ContactSyncRequest request) {
+
+        // پیدا کردن کاربرانی که در لیست ارسالی کلاینت هستند
+        List<User> registeredUsers = userRepository.findByPhoneNumberIn(request.getPhoneNumbers());
+
+        // تبدیل مدل دیتابیس به DTO (تا آیدی دیتابیس و اطلاعات حساس فاش نشود)
+        List<ContactResponse> contacts = registeredUsers.stream()
+                .map(user -> new ContactResponse(
+                        user.getUsername(),
+                        user.getPhoneNumber(),
+                        user.getPublicKey()
+                ))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(contacts);
     }
 }
