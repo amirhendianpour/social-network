@@ -2,6 +2,7 @@ package com.socialnetwork.social.controller; // نام پکیج اصلی خود 
 
 import com.socialnetwork.social.dto.ChatMessage; // مسیر کلاس DTO خود را چک کنید
 import com.socialnetwork.social.dto.MessageReceipt;
+import com.socialnetwork.social.dto.TypingEvent;
 import com.socialnetwork.social.service.MessageService; // سرویسی که در گام هشتم ساختید
 import com.socialnetwork.social.session.UserSessionRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
+import java.util.List;
 
 @Controller
 public class MessageController {
@@ -47,6 +49,29 @@ public class MessageController {
             messageService.saveMessage(chatMessage);
         }
     }
+
+    // ۲. ارسال پیام‌های آفلاین انباشته‌شده به محض آنلاین شدن کاربر و صدور تیک دلیوری
+    @MessageMapping("/chat/history")
+    public void getOfflineMessages(Principal principal) {
+        String username = principal.getName();
+        List<ChatMessage> offlineMessages = messageService.getUnreadMessages(username);
+
+        System.out.println("تعداد پیام‌های آفلاین برای کاربر " + username + " برابر است با: " + offlineMessages.size());
+
+        for (ChatMessage msg : offlineMessages) {
+            // تحویل پیام آفلاین به کاربر مقصد
+            messagingTemplate.convertAndSendToUser(username, "/queue/messages", msg);
+
+            // شلیک تیک دوم (✓✓) برای فرستنده اصلی با همان آیدی متنی کلاینت
+            MessageReceipt receipt = new MessageReceipt(msg.getId(), username, msg.getSender(), "DELIVERED");
+            System.out.println("Sending DELIVERED receipt to: " + msg.getSender() + " for message UUID: " + msg.getId());
+            messagingTemplate.convertAndSendToUser(msg.getSender(), "/queue/receipts", receipt);
+        }
+
+        // پاک کردن کامل پیام‌های موقت تحویل داده شده از دیتابیس
+        messageService.markAsRead(username);
+    }
+
     // --- مسیر جدید برای دریافت و هدایت رسیدها (تیک‌ها) ---
     @MessageMapping("/chat/receipt")
     public void processReceipt(@Payload MessageReceipt receipt, Principal principal) {
@@ -66,6 +91,19 @@ public class MessageController {
             // اگر فرستنده اصلی آفلاین بود، فعلا لاگ می‌اندازیم.
             // در معماری پیشرفته می‌توانید این رسیدها را هم در دیتابیس ذخیره کنید تا بعدا ببیند.
             System.out.println("کاربر " + originalSender + " آفلاین است. امکان نمایش تیک در حال حاضر وجود ندارد.");
+        }
+    }
+
+    // ۴. هدایت سیگنال‌های موقتی «در حال تایپ...» (بدون نیاز به دیتابیس)
+    @MessageMapping("/chat/typing")
+    public void processTypingEvent(@Payload TypingEvent typingEvent, Principal principal) {
+        typingEvent.setSender(principal.getName());
+        String recipient = typingEvent.getRecipient();
+
+        // رویداد فقط به گیرنده آنلاین ارسال می‌شود
+        if (sessionRegistry.isUserOnline(recipient)) {
+            messagingTemplate.convertAndSendToUser(
+                    recipient, "/queue/typing", typingEvent);
         }
     }
 }
