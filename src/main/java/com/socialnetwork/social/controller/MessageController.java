@@ -1,8 +1,13 @@
 package com.socialnetwork.social.controller; // نام پکیج اصلی خود را جایگزین کنید
 
 import com.socialnetwork.social.dto.ChatMessage; // مسیر کلاس DTO خود را چک کنید
+import com.socialnetwork.social.dto.GroupChatMessage;
 import com.socialnetwork.social.dto.MessageReceipt;
 import com.socialnetwork.social.dto.TypingEvent;
+import com.socialnetwork.social.entity.GroupMember;
+import com.socialnetwork.social.entity.GroupMessage;
+import com.socialnetwork.social.service.GroupMessageService;
+import com.socialnetwork.social.service.GroupService;
 import com.socialnetwork.social.service.MessageService; // سرویسی که در گام هشتم ساختید
 import com.socialnetwork.social.session.UserSessionRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,10 +25,15 @@ public class MessageController {
     private final SimpMessagingTemplate messagingTemplate;
     private final MessageService messageService;
 
+    private final GroupService groupService;
+    private final GroupMessageService groupMessageService;
+
     @Autowired
-    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService) {
+    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService, GroupService groupService, GroupMessageService groupMessageService) {
         this.messagingTemplate = messagingTemplate;
         this.messageService = messageService;
+        this.groupService = groupService;
+        this.groupMessageService = groupMessageService;
     }
 
     @Autowired
@@ -104,6 +114,55 @@ public class MessageController {
         if (sessionRegistry.isUserOnline(recipient)) {
             messagingTemplate.convertAndSendToUser(
                     recipient, "/queue/typing", typingEvent);
+        }
+    }
+
+    // --- مسیر جدید برای دریافت و توزیع پیام‌های گروهی ---
+    @MessageMapping("/group/chat")
+    public void processGroupMessage(@Payload GroupChatMessage chatMessage, Principal principal) {
+        String sender = principal.getName();
+        chatMessage.setSender(sender);
+        Long groupId = chatMessage.getGroupId();
+
+        // ۱. ذخیره دائمی پیام در جدول گروه
+        GroupMessage savedMsg = groupMessageService.saveMessage(chatMessage);
+
+        // ۲. واکشی تمام اعضای این گروه از دیتابیس
+        List<GroupMember> members = groupService.getGroupMembers(groupId);
+
+        // ۳. بررسی وضعیت آنلاین بودن اعضا و مدیریت پیام‌های معوقه
+        for (GroupMember member : members) {
+            String memberName = member.getUsername();
+
+            // نیازی نیست برای خود فرستنده کاری کنیم
+            if (!memberName.equals(sender)) {
+                if (!sessionRegistry.isUserOnline(memberName)) {
+                    // اگر عضو آفلاین بود، رکورد تحویل معوقه ثبت می‌کنیم
+                    groupMessageService.saveOfflineDelivery(savedMsg.getId(), memberName);
+                    System.out.println("کاربر " + memberName + " آفلاین است. پیام گروه " + groupId + " در دلیوری ذخیره شد.");
+                }
+            }
+        }
+
+        // ۴. انتشار پیام (Broadcast) به تمام کسانی که به این گروه متصل هستند
+        // الگوی Pub/Sub: هر کس به آدرس /topic/groups/{id} سابسکرایب کرده باشد، پیام را در لحظه می‌گیرد
+        messagingTemplate.convertAndSend("/topic/groups/" + groupId, chatMessage);
+    }
+
+    // --- مسیر جدید برای درخواست پیام‌های آفلاین گروه ---
+    @MessageMapping("/group/history")
+    public void getOfflineGroupMessages(Principal principal) {
+        String username = principal.getName();
+
+        List<GroupChatMessage> offlineMessages = groupMessageService.getOfflineGroupMessages(username);
+
+        System.out.println("تعداد پیام‌های آفلاین گروه برای کاربر " + username + " برابر است با: " + offlineMessages.size());
+
+        for (GroupChatMessage msg : offlineMessages) {
+            // نکته بسیار مهم: پیام‌های گذشته گروه نباید به آدرس عمومی /topic برود!
+            // چون در آن صورت همه اعضا دوباره پیام‌های قدیمی شما را می‌بینند.
+            // باید آن را به صف اختصاصیِ خود کاربر بفرستیم:
+            messagingTemplate.convertAndSendToUser(username, "/queue/group-history", msg);
         }
     }
 }
