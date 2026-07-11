@@ -32,7 +32,12 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // مسیرهای عمومی (بدون نیاز به توکن)
-                        .requestMatchers("/api/users/register", "/api/users/login", "/ws-chat/**").permitAll()
+                        .requestMatchers(
+                                "/api/users/register",
+                                "/api/users/login",
+                                "/ws-chat/**",
+                                "/uploads/**"
+                        ).permitAll()
                         // تمام مسیرهای دیگر باید احراز هویت شوند
                         .anyRequest().authenticated()
                 );

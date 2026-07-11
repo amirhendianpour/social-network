@@ -26,8 +26,13 @@ public class MessageService {
                 chatMessage.getId(), // ذخیره شناسه کلاینت (UUID)
                 chatMessage.getSender(),
                 chatMessage.getRecipient(),
-                chatMessage.getContent()
+                chatMessage.getContent(),
+                chatMessage.getMessageType(),
+                chatMessage.getFileUrl()
         );
+        message.setMessageType(chatMessage.getMessageType());
+        message.setFileUrl(chatMessage.getFileUrl());
+
         messageRepository.save(message);
     }
 
@@ -44,6 +49,8 @@ public class MessageService {
                     dto.setSender(msg.getSender());
                     dto.setRecipient(msg.getRecipient());
                     dto.setContent(msg.getContent());
+                    dto.setMessageType(msg.getMessageType());
+                    dto.setFileUrl(msg.getFileUrl());
                     return dto;
                 })
                 .collect(Collectors.toList());
