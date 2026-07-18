@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface GroupDeliveryRepository extends JpaRepository<GroupDelivery, Long> {
     List<GroupDelivery> findByRecipientUsernameAndStatus(String recipientUsername, String status);
+    List<GroupDelivery> findByGroupMessageIdIn(List<Long> groupMessageIds);
 }

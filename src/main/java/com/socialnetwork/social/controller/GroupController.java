@@ -84,4 +84,20 @@ public class GroupController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    /**
+     * ۶. حذف یک گروه — فقط ادمین مجاز است
+     * DELETE /api/groups/{groupId}
+     */
+    @DeleteMapping("/{groupId}")
+    public ResponseEntity<?> deleteGroup(@PathVariable Long groupId, Principal principal) {
+        try {
+            groupService.deleteGroup(groupId, principal.getName());
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
+        }
+    }
 }
