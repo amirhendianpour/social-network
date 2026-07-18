@@ -57,6 +57,7 @@ public class GroupMessageService {
                 dto.setGroupId(msg.getGroupId());
                 dto.setSender(msg.getSender());
                 dto.setContent(msg.getContent());
+                dto.setTimestamp(msg.getTimestamp());
                 offlineMessages.add(dto);
             });
         }

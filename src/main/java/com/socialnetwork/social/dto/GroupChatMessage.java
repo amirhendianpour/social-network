@@ -1,10 +1,16 @@
 package com.socialnetwork.social.dto;
 
+import java.time.LocalDateTime;
+
 public class GroupChatMessage {
     private String id; // شناسه کلاینت (UUID)
     private Long groupId;
     private String sender;
     private String content;
+    private LocalDateTime timestamp;
+
+    public LocalDateTime getTimestamp() { return timestamp; }
+    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
 
     public GroupChatMessage() {}
 

@@ -70,4 +70,18 @@ public class GroupController {
         List<GroupMember> members = groupService.getGroupMembers(groupId);
         return ResponseEntity.ok(members);
     }
+
+    /**
+     * ۵. دریافت اطلاعات کامل یک گروه (شامل نام گروه)
+     * GET /api/groups/{groupId}
+     */
+    @GetMapping("/{groupId}")
+    public ResponseEntity<?> getGroupById(@PathVariable Long groupId) {
+        try {
+            ChatGroup group = groupService.getGroupById(groupId);
+            return ResponseEntity.ok(group);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

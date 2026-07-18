@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import com.socialnetwork.social.dto.ContactSyncRequest;
 import com.socialnetwork.social.dto.ContactResponse;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.web.bind.annotation.*;
 
@@ -50,15 +51,18 @@ public class UserController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        // حالا شماره موبایل دقیقاً همان‌طور که هست (با +) دریافت می‌شود
         Optional<User> user = userRepository.findByPhoneNumber(request.getPhoneNumber());
-
         if (user.isPresent()) {
             String token = jwtUtil.generateToken(user.get().getUsername());
-            return ResponseEntity.ok(token);
-        } else {
-            return ResponseEntity.status(401).body("کاربری با این شماره یافت نشد!");
+            return ResponseEntity.ok(
+                    Map.of(
+                            "token", token,
+                            "username", user.get().getUsername()
+                    )
+            );
         }
+
+        return ResponseEntity.status(401).body("کاربری با این شماره یافت نشد");
     }
 
     // این مسیر توسط فیلتر امنیتی JWT محافظت می‌شود، پس فقط کاربران لاگین‌کرده می‌توانند فراخوانی کنند

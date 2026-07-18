@@ -65,4 +65,12 @@ public class GroupService {
     public List<GroupMember> getUserGroups(String username) {
         return groupMemberRepository.findByUsername(username);
     }
+
+    /**
+     * دریافت اطلاعات یک گروه خاص بر اساس شناسه
+     */
+    public ChatGroup getGroupById(Long groupId) {
+        return groupRepository.findById(groupId)
+                .orElseThrow(() -> new IllegalArgumentException("گروهی با این شناسه یافت نشد."));
+    }
 }

@@ -1,5 +1,7 @@
 package com.socialnetwork.social.dto;
 
+import java.time.LocalDateTime;
+
 public class ChatMessage {
     private String id;
     private String sender;
@@ -9,6 +11,7 @@ public class ChatMessage {
     // در کلاس ChatMessage (و همچنین کلاس Message در لایه Entity)
     private String messageType = "TEXT"; // می‌تواند "TEXT" یا "IMAGE" یا "FILE" باشد
     private String fileUrl;
+    private LocalDateTime timestamp;
 
     public ChatMessage() {}
 
@@ -36,4 +39,7 @@ public class ChatMessage {
 
     public String getFileUrl() { return fileUrl; }
     public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+
+    public LocalDateTime getTimestamp() { return timestamp; }
+    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
 }

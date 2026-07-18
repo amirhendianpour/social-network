@@ -51,6 +51,7 @@ public class MessageService {
                     dto.setContent(msg.getContent());
                     dto.setMessageType(msg.getMessageType());
                     dto.setFileUrl(msg.getFileUrl());
+                    dto.setTimestamp(msg.getTimestamp());
                     return dto;
                 })
                 .collect(Collectors.toList());

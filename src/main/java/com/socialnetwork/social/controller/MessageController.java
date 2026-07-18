@@ -45,6 +45,8 @@ public class MessageController {
         String sender = principal.getName();
         chatMessage.setSender(sender);
 
+        chatMessage.setTimestamp(java.time.LocalDateTime.now());
+
         String recipient = chatMessage.getRecipient();
 
         if (sessionRegistry.isUserOnline(recipient)) {
@@ -127,6 +129,7 @@ public class MessageController {
         // ۱. ذخیره دائمی پیام در جدول گروه
         GroupMessage savedMsg = groupMessageService.saveMessage(chatMessage);
 
+        chatMessage.setTimestamp(savedMsg.getTimestamp());
         // ۲. واکشی تمام اعضای این گروه از دیتابیس
         List<GroupMember> members = groupService.getGroupMembers(groupId);
 
