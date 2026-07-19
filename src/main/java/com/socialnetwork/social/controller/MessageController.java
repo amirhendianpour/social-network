@@ -126,30 +126,23 @@ public class MessageController {
         chatMessage.setSender(sender);
         Long groupId = chatMessage.getGroupId();
 
-        // ۱. ذخیره دائمی پیام در جدول گروه
         GroupMessage savedMsg = groupMessageService.saveMessage(chatMessage);
-
         chatMessage.setTimestamp(savedMsg.getTimestamp());
-        // ۲. واکشی تمام اعضای این گروه از دیتابیس
+
         List<GroupMember> members = groupService.getGroupMembers(groupId);
 
-        // ۳. بررسی وضعیت آنلاین بودن اعضا و مدیریت پیام‌های معوقه
         for (GroupMember member : members) {
             String memberName = member.getUsername();
+            if (memberName.equals(sender)) continue;
 
-            // نیازی نیست برای خود فرستنده کاری کنیم
-            if (!memberName.equals(sender)) {
-                if (!sessionRegistry.isUserOnline(memberName)) {
-                    // اگر عضو آفلاین بود، رکورد تحویل معوقه ثبت می‌کنیم
-                    groupMessageService.saveOfflineDelivery(savedMsg.getId(), memberName);
-                    System.out.println("کاربر " + memberName + " آفلاین است. پیام گروه " + groupId + " در دلیوری ذخیره شد.");
-                }
+            if (sessionRegistry.isUserOnline(memberName)) {
+                // ارسال مستقیم به صف اختصاصی خود کاربر (نه به تاپیک عمومی)
+                // این‌طوری فارغ از اینکه UI کلاینت گروه جدید رو "می‌شناسه" یا نه، پیام می‌رسه
+                messagingTemplate.convertAndSendToUser(memberName, "/queue/group-messages", chatMessage);
+            } else {
+                groupMessageService.saveOfflineDelivery(savedMsg.getId(), memberName);
             }
         }
-
-        // ۴. انتشار پیام (Broadcast) به تمام کسانی که به این گروه متصل هستند
-        // الگوی Pub/Sub: هر کس به آدرس /topic/groups/{id} سابسکرایب کرده باشد، پیام را در لحظه می‌گیرد
-        messagingTemplate.convertAndSend("/topic/groups/" + groupId, chatMessage);
     }
 
     // --- مسیر جدید برای درخواست پیام‌های آفلاین گروه ---

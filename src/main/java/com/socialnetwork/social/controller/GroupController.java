@@ -2,13 +2,15 @@ package com.socialnetwork.social.controller;
 
 import com.socialnetwork.social.dto.AddMemberRequest;
 import com.socialnetwork.social.dto.CreateGroupRequest;
+import com.socialnetwork.social.dto.GroupUpdateEvent;
 import com.socialnetwork.social.entity.ChatGroup;
 import com.socialnetwork.social.entity.GroupMember;
 import com.socialnetwork.social.service.GroupService;
+import com.socialnetwork.social.session.UserSessionRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
-
 import java.security.Principal;
 import java.util.List;
 
@@ -17,10 +19,15 @@ import java.util.List;
 public class GroupController {
 
     private final GroupService groupService;
+    private final UserSessionRegistry sessionRegistry;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Autowired
-    public GroupController(GroupService groupService) {
+    public GroupController(GroupService groupService, UserSessionRegistry sessionRegistry,
+                           SimpMessagingTemplate messagingTemplate) {
         this.groupService = groupService;
+        this.sessionRegistry = sessionRegistry;
+        this.messagingTemplate = messagingTemplate;
     }
 
     /**
@@ -42,8 +49,14 @@ public class GroupController {
     @PostMapping("/{groupId}/add-member")
     public ResponseEntity<?> addMember(@PathVariable Long groupId, @RequestBody AddMemberRequest request) {
         try {
-            // در صورت تمایل، اینجا می‌توانید چک کنید آیا کاربرِ درخواست‌دهنده خودش ADMIN گروه هست یا خیر
             GroupMember newMember = groupService.addMemberToGroup(groupId, request.getUsername(), request.getRole());
+
+            if (sessionRegistry.isUserOnline(newMember.getUsername())) {
+                ChatGroup group = groupService.getGroupById(groupId);
+                GroupUpdateEvent event = new GroupUpdateEvent("ADDED", groupId, group.getName(), newMember.getRole());
+                messagingTemplate.convertAndSendToUser(newMember.getUsername(), "/queue/group-updates", event);
+            }
+
             return ResponseEntity.ok(newMember);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -92,7 +105,23 @@ public class GroupController {
     @DeleteMapping("/{groupId}")
     public ResponseEntity<?> deleteGroup(@PathVariable Long groupId, Principal principal) {
         try {
+            // قبل از حذف، اطلاعات گروه و لیست اعضا رو نگه می‌داریم
+            ChatGroup group = groupService.getGroupById(groupId);
+            List<GroupMember> members = groupService.getGroupMembers(groupId);
+
             groupService.deleteGroup(groupId, principal.getName());
+
+            // اطلاع‌رسانی به اعضای آنلاین (به جز خود درخواست‌دهنده)
+            for (GroupMember member : members) {
+                String memberName = member.getUsername();
+                if (memberName.equals(principal.getName())) continue;
+
+                if (sessionRegistry.isUserOnline(memberName)) {
+                    GroupUpdateEvent event = new GroupUpdateEvent("DELETED", groupId, group.getName(), null);
+                    messagingTemplate.convertAndSendToUser(memberName, "/queue/group-updates", event);
+                }
+            }
+
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
