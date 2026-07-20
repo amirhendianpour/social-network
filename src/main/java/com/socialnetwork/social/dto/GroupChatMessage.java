@@ -1,17 +1,19 @@
 package com.socialnetwork.social.dto;
 
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import java.time.Instant;
 
 public class GroupChatMessage {
     private String id; // شناسه کلاینت (UUID)
     private Long groupId;
     private String sender;
     private String content;
-    private LocalDateTime timestamp;
+    private Instant timestamp;
 
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+    public Instant getTimestamp() { return timestamp; }
 
+    public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
     public GroupChatMessage() {}
 
     // Getter ها و Setter ها

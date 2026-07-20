@@ -1,17 +1,18 @@
 package com.socialnetwork.social.dto;
 
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import java.time.Instant;
 
 public class ChatMessage {
     private String id;
     private String sender;
     private String recipient;
     private String content;
-
-    // در کلاس ChatMessage (و همچنین کلاس Message در لایه Entity)
     private String messageType = "TEXT"; // می‌تواند "TEXT" یا "IMAGE" یا "FILE" باشد
     private String fileUrl;
-    private LocalDateTime timestamp;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+    private Instant timestamp;
 
     public ChatMessage() {}
 
@@ -40,6 +41,6 @@ public class ChatMessage {
     public String getFileUrl() { return fileUrl; }
     public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
 
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    public Instant getTimestamp() { return timestamp; }
+    public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
 }

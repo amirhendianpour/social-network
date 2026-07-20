@@ -45,7 +45,7 @@ public class MessageController {
         String sender = principal.getName();
         chatMessage.setSender(sender);
 
-        chatMessage.setTimestamp(java.time.LocalDateTime.now());
+        chatMessage.setTimestamp(java.time.Instant.now());
 
         String recipient = chatMessage.getRecipient();
 

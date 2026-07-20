@@ -1,7 +1,7 @@
 package com.socialnetwork.social.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "messages")
@@ -11,12 +11,9 @@ public class Message {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // اضافه شدن فیلد برای ذخیره شناسه منحصر‌به‌فرد کلاینت (مثلاً UUID)
     private String clientMessageId;
-
     private String sender;
     private String recipient;
-
     private String messageType;
 
     @Column(columnDefinition = "TEXT")
@@ -25,7 +22,7 @@ public class Message {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    private LocalDateTime timestamp;
+    private Instant timestamp;
 
     public Message() {}
 
@@ -34,7 +31,7 @@ public class Message {
         this.sender = sender;
         this.recipient = recipient;
         this.content = content;
-        this.timestamp = LocalDateTime.now(); // زمان ثبت پیام
+        this.timestamp = Instant.now();
         this.messageType = messageType;
         this.fileUrl = fileUrl;
     }
@@ -51,8 +48,8 @@ public class Message {
     public void setRecipient(String recipient) { this.recipient = recipient; }
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    public Instant getTimestamp() { return timestamp; }
+    public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
 
     public String getMessageType() {return messageType;}
     public void setMessageType(String messageType) {this.messageType = messageType;}

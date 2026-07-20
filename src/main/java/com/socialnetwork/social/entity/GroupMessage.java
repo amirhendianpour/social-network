@@ -1,7 +1,7 @@
 package com.socialnetwork.social.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "group_messages")
@@ -11,19 +11,14 @@ public class GroupMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // همان ترفندی که برای تیک پیام‌ها استفاده کردیم (جلوگیری از باگ دلیوری)
     private String clientMessageId;
-
-    // پیام متعلق به کدام گروه است؟
     private Long groupId;
-
-    // چه کسی پیام را فرستاده است؟
     private String sender;
 
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    private LocalDateTime timestamp;
+    private Instant timestamp;
 
     public GroupMessage() {}
 
@@ -32,7 +27,7 @@ public class GroupMessage {
         this.groupId = groupId;
         this.sender = sender;
         this.content = content;
-        this.timestamp = LocalDateTime.now();
+        this.timestamp = Instant.now();
     }
 
     // Getter ها و Setter ها
@@ -51,6 +46,6 @@ public class GroupMessage {
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
 
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    public Instant getTimestamp() { return timestamp; }
+    public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
 }
