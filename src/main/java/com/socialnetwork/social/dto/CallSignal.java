@@ -7,6 +7,10 @@ public class CallSignal {
     private String sdp;       // برای OFFER و ANSWER
     private String candidate; // برای ICE_CANDIDATE (JSON رشته‌ای شده)
     private String callId;
+    private String callType; // "AUDIO" یا "VIDEO"
+
+    public String getCallType() { return callType; }
+    public void setCallType(String callType) { this.callType = callType; }
 
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
