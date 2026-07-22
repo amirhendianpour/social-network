@@ -1,8 +1,10 @@
 package com.socialnetwork.social.security;
 
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,14 +20,22 @@ public class GmailEmailProvider {
     }
 
     public void send(String toEmail, String code) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromAddress);
-        message.setTo(toEmail);
-        message.setSubject("کد تایید شما");
-        message.setText("کد تایید شما: " + code + "\nاین کد تا ۵ دقیقه معتبر است.");
-
         try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+
+            // نامی که گیرنده مشاهده می‌کند
+            helper.setFrom(new InternetAddress(fromAddress, "Social Network"));
+
+            helper.setTo(toEmail);
+            helper.setSubject("کد تایید شما");
+            helper.setText(
+                    "کد تایید شما: " + code + "\nاین کد تا ۵ دقیقه معتبر است.",
+                    false
+            );
+
             mailSender.send(message);
+
         } catch (Exception e) {
             throw new RuntimeException("ارسال ایمیل ناموفق بود: " + e.getMessage(), e);
         }
