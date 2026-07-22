@@ -80,6 +80,17 @@
 			<version>0.11.5</version>
 			<scope>runtime</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.twilio.sdk</groupId>
+			<artifactId>twilio</artifactId>
+			<!-- نسخه‌ی دقیق و به‌روز رو از اینجا بردارید و جایگزین کنید: -->
+			<!-- https://mvnrepository.com/artifact/com.twilio.sdk/twilio -->
+			<version>10.6.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>
