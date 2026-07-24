@@ -1,5 +1,6 @@
 package com.socialnetwork.social.controller;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,7 +18,11 @@ import java.util.UUID;
 @RequestMapping("/api/media")
 public class MediaController {
 
-    private final String UPLOAD_DIR = "uploads/";
+    @Value("${app.upload-dir}")
+    private String uploadDir;
+
+    @Value("${app.base-url}")
+    private String baseUrl;
 
     @PostMapping("/upload")
     public ResponseEntity<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file) {
@@ -29,21 +34,17 @@ public class MediaController {
         }
 
         try {
-            // ساخت پوشه در صورت عدم وجود
-            File dir = new File(UPLOAD_DIR);
+            File dir = new File(uploadDir);
             if (!dir.exists()) dir.mkdirs();
 
-            // تولید نام یکتا برای جلوگیری از تداخل
             String originalFilename = file.getOriginalFilename();
             String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
             String newFilename = UUID.randomUUID() + extension;
 
-            // ذخیره فایل روی سرور
-            Path path = Paths.get(UPLOAD_DIR + newFilename);
+            Path path = Paths.get(uploadDir + newFilename);
             Files.write(path, file.getBytes());
 
-            // تولید لینک دانلود
-            String fileUrl = "http://localhost:8080/uploads/" + newFilename;
+            String fileUrl = baseUrl + "/uploads/" + newFilename;
             response.put("fileUrl", fileUrl);
 
             return ResponseEntity.ok(response);
