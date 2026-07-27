@@ -30,7 +30,7 @@ public class UserController {
     public ResponseEntity<?> lookupUser(@RequestParam String identifier) {
         return userRepository.findByEmailOrPhoneNumber(identifier)
                 .map(user -> ResponseEntity.ok(
-                        (Object) new UserInfo(user.getUsername(), user.getFirstName(), user.getLastName())
+                        (Object) new UserInfo(user.getUsername(), user.getFirstName(), user.getLastName(), user.getProfilePictureUrl())
                 ))
                 .orElseGet(() -> ResponseEntity.status(404).body(Map.of("error", "کاربری با این مشخصات یافت نشد.")));
     }
@@ -40,7 +40,7 @@ public class UserController {
     public ResponseEntity<List<UserInfo>> batchInfo(@RequestBody BatchInfoRequest request) {
         List<User> users = userRepository.findByUsernameIn(request.getUsernames());
         List<UserInfo> result = users.stream()
-                .map(u -> new UserInfo(u.getUsername(), u.getFirstName(), u.getLastName()))
+                .map(u -> new UserInfo(u.getUsername(), u.getFirstName(), u.getLastName(), u.getProfilePictureUrl()))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(result);
     }

@@ -17,12 +17,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/media")
 public class MediaController {
-
-    @Value("${app.upload-dir}")
-    private String uploadDir;
-
-    @Value("${app.base-url}")
-    private String baseUrl;
+    @Value("${app.upload-dir}") private String uploadDir;
+    @Value("${app.base-url}") private String baseUrl;
 
     @PostMapping("/upload")
     public ResponseEntity<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file) {

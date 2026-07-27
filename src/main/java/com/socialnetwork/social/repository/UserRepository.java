@@ -14,6 +14,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByPhoneNumber(String phoneNumber);
     Optional<User> findByEmail(String email);
+    Optional<User> findByUsername(String username);
 
     // برای لاگین: شناسه ورودی می‌تواند ایمیل یا شماره موبایل باشد
     @Query("SELECT u FROM User u WHERE u.email = :identifier OR u.phoneNumber = :identifier")

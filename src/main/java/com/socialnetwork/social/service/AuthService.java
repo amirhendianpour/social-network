@@ -110,7 +110,8 @@ public class AuthService {
 
     private AuthResponse buildAuthResponse(User user) {
         String token = jwtUtil.generateToken(user.getUsername());
-        return new AuthResponse(token, user.getUsername(), user.getFirstName(), user.getLastName(), user.getEmail(), user.getPhoneNumber());
+        return new AuthResponse(token, user.getUsername(), user.getFirstName(), user.getLastName(),
+                user.getEmail(), user.getPhoneNumber(), user.getBio(), user.getProfilePictureUrl());
     }
 
     private String generateInternalUsername() {

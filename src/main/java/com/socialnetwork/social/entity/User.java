@@ -35,6 +35,11 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String publicKey;
 
+    @Column(columnDefinition = "TEXT")
+    private String bio;
+
+    private String profilePictureUrl;
+
     public User() {}
 
     public Long getId() { return id; }
@@ -69,6 +74,12 @@ public class User {
 
     public String getPublicKey() { return publicKey; }
     public void setPublicKey(String publicKey) { this.publicKey = publicKey; }
+
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
+
+    public String getProfilePictureUrl() { return profilePictureUrl; }
+    public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
 
     // نامی که در چت و لیست مخاطبین نمایش داده می‌شود
     public String getDisplayName() {
