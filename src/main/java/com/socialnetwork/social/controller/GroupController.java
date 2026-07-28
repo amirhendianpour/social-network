@@ -68,10 +68,6 @@ public class GroupController {
         return ResponseEntity.ok(members);
     }
 
-    /**
-     * لیست کامل اعضا (نام، آواتار، نقش) — برای پنل اطلاعات گروه
-     * GET /api/groups/{groupId}/members/info
-     */
     @GetMapping("/{groupId}/members/info")
     public ResponseEntity<List<GroupMemberInfo>> getGroupMembersInfo(@PathVariable Long groupId) {
         return ResponseEntity.ok(groupService.getGroupMembersWithInfo(groupId));
@@ -87,10 +83,6 @@ public class GroupController {
         }
     }
 
-    /**
-     * تغییر نام گروه — فقط ادمین مجاز است
-     * PUT /api/groups/{groupId}/name
-     */
     @PutMapping("/{groupId}/name")
     public ResponseEntity<?> updateGroupName(@PathVariable Long groupId,
                                              @RequestBody UpdateGroupNameRequest request,
@@ -117,10 +109,6 @@ public class GroupController {
         }
     }
 
-    /**
-     * تغییر عکس گروه — فقط ادمین مجاز است
-     * POST /api/groups/{groupId}/image
-     */
     @PostMapping("/{groupId}/image")
     public ResponseEntity<?> updateGroupImage(@PathVariable Long groupId,
                                               @RequestParam("file") MultipartFile file,
@@ -149,10 +137,6 @@ public class GroupController {
         }
     }
 
-    /**
-     * ارتقا/تنزل نقش یک عضو — فقط ادمین مجاز است
-     * PUT /api/groups/{groupId}/members/{username}/role
-     */
     @PutMapping("/{groupId}/members/{username}/role")
     public ResponseEntity<?> updateMemberRole(@PathVariable Long groupId,
                                               @PathVariable String username,
@@ -176,6 +160,46 @@ public class GroupController {
             return ResponseEntity.status(403).body(e.getMessage());
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(e.getMessage());
+        }
+    }
+
+    /**
+     * حذف یک عضو از گروه — فقط ادمین مجاز است
+     * DELETE /api/groups/{groupId}/members/{username}
+     */
+    @DeleteMapping("/{groupId}/members/{username}")
+    public ResponseEntity<?> removeMember(@PathVariable Long groupId,
+                                          @PathVariable String username,
+                                          Principal principal) {
+        try {
+            ChatGroup group = groupService.getGroupById(groupId);
+            groupService.removeMember(groupId, principal.getName(), username);
+
+            // اطلاع به خود کاربر حذف‌شده (اگر آنلاین است) تا گروه از لیست خودش کنار برود
+            if (sessionRegistry.isUserOnline(username)) {
+                GroupUpdateEvent removedEvent = new GroupUpdateEvent(
+                        "REMOVED", groupId, group.getName(), null, null, username
+                );
+                messagingTemplate.convertAndSendToUser(username, "/queue/group-updates", removedEvent);
+            }
+
+            // اطلاع به بقیه اعضای آنلاین تا اگر پنل اطلاعات گروه را باز دارند، لیست را به‌روز کنند
+            List<GroupMember> remainingMembers = groupService.getGroupMembers(groupId);
+            for (GroupMember member : remainingMembers) {
+                if (member.getUsername().equals(principal.getName())) continue;
+                if (sessionRegistry.isUserOnline(member.getUsername())) {
+                    GroupUpdateEvent event = new GroupUpdateEvent(
+                            "MEMBER_REMOVED", groupId, group.getName(), member.getRole(), group.getImageUrl(), username
+                    );
+                    messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-updates", event);
+                }
+            }
+
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
         }
     }
 

@@ -79,9 +79,6 @@ public class GroupService {
         return groupMemberRepository.findByGroupId(groupId);
     }
 
-    /**
-     * لیست کامل اعضا به همراه نام، آواتار و نقش — برای نمایش در پنل اطلاعات گروه
-     */
     public List<GroupMemberInfo> getGroupMembersWithInfo(Long groupId) {
         List<GroupMember> members = groupMemberRepository.findByGroupId(groupId);
         List<String> usernames = members.stream().map(GroupMember::getUsername).collect(Collectors.toList());
@@ -109,9 +106,6 @@ public class GroupService {
                 .orElseThrow(() -> new IllegalArgumentException("گروهی با این شناسه یافت نشد."));
     }
 
-    /**
-     * تغییر نام گروه — فقط برای اعضایی با نقش ADMIN مجاز است
-     */
     @Transactional
     public ChatGroup updateGroupName(Long groupId, String requesterUsername, String newName) {
         if (newName == null || newName.trim().isEmpty()) {
@@ -133,9 +127,6 @@ public class GroupService {
         return groupRepository.save(group);
     }
 
-    /**
-     * تغییر عکس گروه — فقط برای اعضایی با نقش ADMIN مجاز است
-     */
     @Transactional
     public ChatGroup updateGroupImage(Long groupId, String requesterUsername, MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -176,9 +167,6 @@ public class GroupService {
         }
     }
 
-    /**
-     * تغییر نقش یک عضو (ارتقا/تنزل ادمین) — فقط توسط ادمین مجاز است
-     */
     @Transactional
     public GroupMember updateMemberRole(Long groupId, String requesterUsername, String targetUsername, String newRole) {
         if (!"ADMIN".equalsIgnoreCase(newRole) && !"MEMBER".equalsIgnoreCase(newRole)) {
@@ -197,7 +185,6 @@ public class GroupService {
                 .findByGroupIdAndUsername(groupId, targetUsername)
                 .orElseThrow(() -> new IllegalArgumentException("این کاربر عضو گروه نیست."));
 
-        // جلوگیری از حذف آخرین ادمین گروه
         if ("MEMBER".equalsIgnoreCase(newRole) && "ADMIN".equalsIgnoreCase(targetMembership.getRole())) {
             long adminCount = groupMemberRepository.findByGroupId(groupId).stream()
                     .filter(m -> "ADMIN".equalsIgnoreCase(m.getRole()))
@@ -209,6 +196,43 @@ public class GroupService {
 
         targetMembership.setRole(newRole.toUpperCase());
         return groupMemberRepository.save(targetMembership);
+    }
+
+    /**
+     * حذف یک عضو از گروه — فقط توسط ادمین مجاز است
+     */
+    @Transactional
+    public void removeMember(Long groupId, String requesterUsername, String targetUsername) {
+        if (requesterUsername.equals(targetUsername)) {
+            throw new IllegalArgumentException("امکان حذف خودتان از این طریق وجود ندارد.");
+        }
+
+        GroupMember requesterMembership = groupMemberRepository
+                .findByGroupIdAndUsername(groupId, requesterUsername)
+                .orElseThrow(() -> new SecurityException("شما عضو این گروه نیستید."));
+
+        if (!"ADMIN".equalsIgnoreCase(requesterMembership.getRole())) {
+            throw new SecurityException("فقط ادمین گروه می‌تواند عضو را حذف کند.");
+        }
+
+        GroupMember targetMembership = groupMemberRepository
+                .findByGroupIdAndUsername(groupId, targetUsername)
+                .orElseThrow(() -> new IllegalArgumentException("این کاربر عضو گروه نیست."));
+
+        // پاک کردن دلیوری‌های معوقه‌ی این کاربر برای پیام‌های همین گروه، تا اگر بعداً دوباره اضافه شد پیام‌های قدیمی را نبیند
+        List<GroupMessage> groupMessages = groupMessageRepository.findByGroupIdOrderByTimestampAsc(groupId);
+        List<Long> messageIds = groupMessages.stream().map(GroupMessage::getId).collect(Collectors.toList());
+        if (!messageIds.isEmpty()) {
+            List<GroupDelivery> pending = groupDeliveryRepository.findByRecipientUsernameAndStatus(targetUsername, "PENDING");
+            List<GroupDelivery> toDelete = pending.stream()
+                    .filter(d -> messageIds.contains(d.getGroupMessageId()))
+                    .collect(Collectors.toList());
+            if (!toDelete.isEmpty()) {
+                groupDeliveryRepository.deleteAll(toDelete);
+            }
+        }
+
+        groupMemberRepository.delete(targetMembership);
     }
 
     private void deleteOldGroupImageIfLocal(String oldUrl) {
