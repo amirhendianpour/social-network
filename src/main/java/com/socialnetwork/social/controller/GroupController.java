@@ -1,8 +1,6 @@
 package com.socialnetwork.social.controller;
 
-import com.socialnetwork.social.dto.AddMemberRequest;
-import com.socialnetwork.social.dto.CreateGroupRequest;
-import com.socialnetwork.social.dto.GroupUpdateEvent;
+import com.socialnetwork.social.dto.*;
 import com.socialnetwork.social.entity.ChatGroup;
 import com.socialnetwork.social.entity.GroupMember;
 import com.socialnetwork.social.service.GroupService;
@@ -46,7 +44,7 @@ public class GroupController {
             if (sessionRegistry.isUserOnline(newMember.getUsername())) {
                 ChatGroup group = groupService.getGroupById(groupId);
                 GroupUpdateEvent event = new GroupUpdateEvent(
-                        "ADDED", groupId, group.getName(), newMember.getRole(), group.getImageUrl()
+                        "ADDED", groupId, group.getName(), newMember.getRole(), group.getImageUrl(), null
                 );
                 messagingTemplate.convertAndSendToUser(newMember.getUsername(), "/queue/group-updates", event);
             }
@@ -70,6 +68,15 @@ public class GroupController {
         return ResponseEntity.ok(members);
     }
 
+    /**
+     * لیست کامل اعضا (نام، آواتار، نقش) — برای پنل اطلاعات گروه
+     * GET /api/groups/{groupId}/members/info
+     */
+    @GetMapping("/{groupId}/members/info")
+    public ResponseEntity<List<GroupMemberInfo>> getGroupMembersInfo(@PathVariable Long groupId) {
+        return ResponseEntity.ok(groupService.getGroupMembersWithInfo(groupId));
+    }
+
     @GetMapping("/{groupId}")
     public ResponseEntity<?> getGroupById(@PathVariable Long groupId) {
         try {
@@ -77,6 +84,36 @@ public class GroupController {
             return ResponseEntity.ok(group);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * تغییر نام گروه — فقط ادمین مجاز است
+     * PUT /api/groups/{groupId}/name
+     */
+    @PutMapping("/{groupId}/name")
+    public ResponseEntity<?> updateGroupName(@PathVariable Long groupId,
+                                             @RequestBody UpdateGroupNameRequest request,
+                                             Principal principal) {
+        try {
+            ChatGroup updatedGroup = groupService.updateGroupName(groupId, principal.getName(), request.getGroupName());
+
+            List<GroupMember> members = groupService.getGroupMembers(groupId);
+            for (GroupMember member : members) {
+                if (member.getUsername().equals(principal.getName())) continue;
+                if (sessionRegistry.isUserOnline(member.getUsername())) {
+                    GroupUpdateEvent event = new GroupUpdateEvent(
+                            "NAME_UPDATED", groupId, updatedGroup.getName(), member.getRole(), updatedGroup.getImageUrl(), null
+                    );
+                    messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-updates", event);
+                }
+            }
+
+            return ResponseEntity.ok(updatedGroup);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
         }
     }
 
@@ -91,13 +128,12 @@ public class GroupController {
         try {
             ChatGroup updatedGroup = groupService.updateGroupImage(groupId, principal.getName(), file);
 
-            // اطلاع‌رسانی به بقیه اعضای آنلاین تا آواتار گروه را در لحظه به‌روزرسانی کنند
             List<GroupMember> members = groupService.getGroupMembers(groupId);
             for (GroupMember member : members) {
                 if (member.getUsername().equals(principal.getName())) continue;
                 if (sessionRegistry.isUserOnline(member.getUsername())) {
                     GroupUpdateEvent event = new GroupUpdateEvent(
-                            "IMAGE_UPDATED", groupId, updatedGroup.getName(), member.getRole(), updatedGroup.getImageUrl()
+                            "IMAGE_UPDATED", groupId, updatedGroup.getName(), member.getRole(), updatedGroup.getImageUrl(), null
                     );
                     messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-updates", event);
                 }
@@ -110,6 +146,36 @@ public class GroupController {
             return ResponseEntity.status(403).body(e.getMessage());
         } catch (RuntimeException e) {
             return ResponseEntity.internalServerError().body(e.getMessage());
+        }
+    }
+
+    /**
+     * ارتقا/تنزل نقش یک عضو — فقط ادمین مجاز است
+     * PUT /api/groups/{groupId}/members/{username}/role
+     */
+    @PutMapping("/{groupId}/members/{username}/role")
+    public ResponseEntity<?> updateMemberRole(@PathVariable Long groupId,
+                                              @PathVariable String username,
+                                              @RequestBody UpdateMemberRoleRequest request,
+                                              Principal principal) {
+        try {
+            GroupMember updated = groupService.updateMemberRole(groupId, principal.getName(), username, request.getRole());
+
+            if (sessionRegistry.isUserOnline(username)) {
+                ChatGroup group = groupService.getGroupById(groupId);
+                GroupUpdateEvent event = new GroupUpdateEvent(
+                        "ROLE_UPDATED", groupId, group.getName(), updated.getRole(), group.getImageUrl(), username
+                );
+                messagingTemplate.convertAndSendToUser(username, "/queue/group-updates", event);
+            }
+
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(e.getMessage());
         }
     }
 
@@ -126,7 +192,7 @@ public class GroupController {
                 if (memberName.equals(principal.getName())) continue;
 
                 if (sessionRegistry.isUserOnline(memberName)) {
-                    GroupUpdateEvent event = new GroupUpdateEvent("DELETED", groupId, group.getName(), null, null);
+                    GroupUpdateEvent event = new GroupUpdateEvent("DELETED", groupId, group.getName(), null, null, null);
                     messagingTemplate.convertAndSendToUser(memberName, "/queue/group-updates", event);
                 }
             }
