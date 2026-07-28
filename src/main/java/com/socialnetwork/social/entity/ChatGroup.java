@@ -10,13 +10,11 @@ public class ChatGroup {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String name;
-
     // کاربری که گروه را ساخته است
     private String creator;
-
     private LocalDateTime createdAt;
+    private String imageUrl;
 
     public ChatGroup() {}
 
@@ -38,4 +36,7 @@ public class ChatGroup {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 }

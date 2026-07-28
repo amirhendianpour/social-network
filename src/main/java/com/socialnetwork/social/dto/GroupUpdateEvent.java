@@ -5,14 +5,16 @@ public class GroupUpdateEvent {
     private Long groupId;
     private String groupName;
     private String role;
+    private String imageUrl;
 
     public GroupUpdateEvent() {}
 
-    public GroupUpdateEvent(String type, Long groupId, String groupName, String role) {
+    public GroupUpdateEvent(String type, Long groupId, String groupName, String role, String imageUrl) {
         this.type = type;
         this.groupId = groupId;
         this.groupName = groupName;
         this.role = role;
+        this.imageUrl = imageUrl;
     }
 
     public String getType() { return type; }
@@ -23,4 +25,6 @@ public class GroupUpdateEvent {
     public void setGroupName(String groupName) { this.groupName = groupName; }
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 }

@@ -9,52 +9,56 @@ import com.socialnetwork.social.repository.GroupDeliveryRepository;
 import com.socialnetwork.social.repository.GroupMemberRepository;
 import com.socialnetwork.social.repository.GroupMessageRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class GroupService {
+
+    private static final String GROUP_IMAGE_UPLOAD_DIR = "uploads/groups/";
 
     private final GroupMessageRepository groupMessageRepository;
     private final GroupDeliveryRepository groupDeliveryRepository;
     private final ChatGroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
+    private final String baseUrl;
 
     @Autowired
     public GroupService(ChatGroupRepository groupRepository,
                         GroupMemberRepository groupMemberRepository,
                         GroupMessageRepository groupMessageRepository,
-                        GroupDeliveryRepository groupDeliveryRepository) {
+                        GroupDeliveryRepository groupDeliveryRepository,
+                        @Value("${app.upload-base-url:http://localhost:8080}") String baseUrl) {
         this.groupRepository = groupRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.groupMessageRepository = groupMessageRepository;
         this.groupDeliveryRepository = groupDeliveryRepository;
+        this.baseUrl = baseUrl;
     }
 
-    /**
-     * ایجاد یک گروه جدید و تنظیم سازنده به عنوان مدیر (ADMIN)
-     */
     @Transactional
     public ChatGroup createGroup(String groupName, String creatorUsername) {
-        // ۱. ساخت و ذخیره گروه
         ChatGroup newGroup = new ChatGroup(groupName, creatorUsername);
         ChatGroup savedGroup = groupRepository.save(newGroup);
 
-        // ۲. اضافه کردن سازنده به عنوان ادمین گروه
         GroupMember creatorMember = new GroupMember(savedGroup.getId(), creatorUsername, "ADMIN");
         groupMemberRepository.save(creatorMember);
 
         return savedGroup;
     }
 
-    /**
-     * اضافه کردن یک عضو جدید به گروه (توسط ادمین یا اعضا)
-     */
     @Transactional
     public GroupMember addMemberToGroup(Long groupId, String newUsername, String role) {
-        // بررسی اینکه آیا کاربر از قبل در گروه هست یا خیر
         if (groupMemberRepository.findByGroupIdAndUsername(groupId, newUsername).isPresent()) {
             throw new IllegalArgumentException("این کاربر از قبل در گروه عضو است.");
         }
@@ -63,39 +67,79 @@ public class GroupService {
         return groupMemberRepository.save(newMember);
     }
 
-    /**
-     * دریافت لیست تمام اعضای یک گروه (برای Broadcast کردن پیام‌ها)
-     */
     public List<GroupMember> getGroupMembers(Long groupId) {
         return groupMemberRepository.findByGroupId(groupId);
     }
 
-    /**
-     * دریافت لیست تمام گروه‌هایی که کاربر فعلی در آن‌ها عضو است
-     */
     public List<GroupMember> getUserGroups(String username) {
         return groupMemberRepository.findByUsername(username);
     }
 
-    /**
-     * دریافت اطلاعات یک گروه خاص بر اساس شناسه
-     */
     public ChatGroup getGroupById(Long groupId) {
         return groupRepository.findById(groupId)
                 .orElseThrow(() -> new IllegalArgumentException("گروهی با این شناسه یافت نشد."));
     }
 
     /**
-     * حذف گروه — فقط برای اعضایی با نقش ADMIN مجاز است
+     * تغییر عکس گروه — فقط برای اعضایی با نقش ADMIN مجاز است
      */
+    @Transactional
+    public ChatGroup updateGroupImage(Long groupId, String requesterUsername, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("فایلی انتخاب نشده است.");
+        }
+
+        ChatGroup group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new IllegalArgumentException("گروهی با این شناسه یافت نشد."));
+
+        GroupMember requesterMembership = groupMemberRepository
+                .findByGroupIdAndUsername(groupId, requesterUsername)
+                .orElseThrow(() -> new SecurityException("شما عضو این گروه نیستید."));
+
+        if (!"ADMIN".equalsIgnoreCase(requesterMembership.getRole())) {
+            throw new SecurityException("فقط ادمین گروه می‌تواند عکس گروه را تغییر دهد.");
+        }
+
+        try {
+            File dir = new File(GROUP_IMAGE_UPLOAD_DIR);
+            if (!dir.exists()) dir.mkdirs();
+
+            String originalFilename = file.getOriginalFilename();
+            String extension = (originalFilename != null && originalFilename.contains("."))
+                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                    : ".jpg";
+            String newFilename = UUID.randomUUID() + extension;
+
+            Path path = Paths.get(GROUP_IMAGE_UPLOAD_DIR + newFilename);
+            Files.write(path, file.getBytes());
+
+            deleteOldGroupImageIfLocal(group.getImageUrl());
+
+            group.setImageUrl(baseUrl + "/uploads/groups/" + newFilename);
+            return groupRepository.save(group);
+
+        } catch (IOException e) {
+            throw new RuntimeException("خطا در ذخیره عکس گروه: " + e.getMessage(), e);
+        }
+    }
+
+    private void deleteOldGroupImageIfLocal(String oldUrl) {
+        if (oldUrl == null || !oldUrl.contains("/uploads/groups/")) return;
+        try {
+            String marker = "/uploads/groups/";
+            String filename = oldUrl.substring(oldUrl.lastIndexOf(marker) + marker.length());
+            Files.deleteIfExists(Paths.get(GROUP_IMAGE_UPLOAD_DIR + filename));
+        } catch (Exception ignored) {
+            // اگر پاک کردن فایل قدیمی شکست بخورد، صرفاً یک فایل یتیم باقی می‌ماند
+        }
+    }
+
     @Transactional
     public void deleteGroup(Long groupId, String requesterUsername) {
 
-        // بررسی وجود گروه
         groupRepository.findById(groupId)
                 .orElseThrow(() -> new IllegalArgumentException("گروهی با این شناسه یافت نشد."));
 
-        // بررسی عضویت و نقش درخواست‌دهنده
         GroupMember requesterMembership = groupMemberRepository
                 .findByGroupIdAndUsername(groupId, requesterUsername)
                 .orElseThrow(() -> new SecurityException("شما عضو این گروه نیستید."));
@@ -104,7 +148,6 @@ public class GroupService {
             throw new SecurityException("فقط ادمین گروه می‌تواند آن را حذف کند.");
         }
 
-        // ۱. پاک کردن دلیوری‌های معوقه‌ی مربوط به پیام‌های این گروه
         List<GroupMessage> groupMessages = groupMessageRepository.findByGroupIdOrderByTimestampAsc(groupId);
         List<Long> messageIds = groupMessages.stream()
                 .map(GroupMessage::getId)
@@ -115,14 +158,11 @@ public class GroupService {
             groupDeliveryRepository.deleteAll(deliveries);
         }
 
-        // ۲. پاک کردن تمام پیام‌های گروه
         groupMessageRepository.deleteAll(groupMessages);
 
-        // ۳. پاک کردن تمام عضویت‌ها
         List<GroupMember> members = groupMemberRepository.findByGroupId(groupId);
         groupMemberRepository.deleteAll(members);
 
-        // ۴. پاک کردن خود گروه
         groupRepository.deleteById(groupId);
     }
 }
