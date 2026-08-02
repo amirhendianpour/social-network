@@ -6,6 +6,7 @@ import com.socialnetwork.social.dto.MessageReceipt;
 import com.socialnetwork.social.dto.TypingEvent;
 import com.socialnetwork.social.entity.GroupMember;
 import com.socialnetwork.social.entity.GroupMessage;
+import com.socialnetwork.social.service.FcmService;
 import com.socialnetwork.social.service.GroupMessageService;
 import com.socialnetwork.social.service.GroupService;
 import com.socialnetwork.social.service.MessageService; // سرویسی که در گام هشتم ساختید
@@ -21,6 +22,8 @@ import java.util.List;
 
 @Controller
 public class MessageController {
+    private final FcmService fcmService;
+    private final com.socialnetwork.social.repository.UserRepository userRepository;
 
     private final SimpMessagingTemplate messagingTemplate;
     private final MessageService messageService;
@@ -29,11 +32,15 @@ public class MessageController {
     private final GroupMessageService groupMessageService;
 
     @Autowired
-    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService, GroupService groupService, GroupMessageService groupMessageService) {
+    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService,
+                             GroupService groupService, GroupMessageService groupMessageService,
+                             FcmService fcmService, com.socialnetwork.social.repository.UserRepository userRepository) {
         this.messagingTemplate = messagingTemplate;
         this.messageService = messageService;
         this.groupService = groupService;
         this.groupMessageService = groupMessageService;
+        this.fcmService = fcmService;
+        this.userRepository = userRepository;
     }
 
     @Autowired
@@ -41,24 +48,24 @@ public class MessageController {
 
     @MessageMapping("/chat")
     public void processMessage(@Payload ChatMessage chatMessage, Principal principal) {
-        // نام فرستنده از روی توکن امنیتی برداشته می‌شود نه از پیام کلاینت
         String sender = principal.getName();
         chatMessage.setSender(sender);
-
         chatMessage.setTimestamp(java.time.Instant.now());
 
         String recipient = chatMessage.getRecipient();
 
         if (sessionRegistry.isUserOnline(recipient)) {
-            // گیرنده آنلاین است -> ارسال مستقیم به کلاینت وب‌سوکت او
             System.out.println("Direct send to online user: " + recipient);
-            messagingTemplate.convertAndSendToUser(
-                    recipient, "/queue/messages", chatMessage);
+            messagingTemplate.convertAndSendToUser(recipient, "/queue/messages", chatMessage);
         } else {
-            // گیرنده آفلاین است -> ذخیره در دیتابیس
             System.out.println("User offline. Saving message in DB for: " + recipient);
-            // فرض می‌کنیم متد saveMessage در MessageService این کار را می‌کند
             messageService.saveMessage(chatMessage);
+
+            // کاربر آفلاین است -> نوتیف Push هم بفرست
+            String senderDisplayName = userRepository.findByUsername(sender)
+                    .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
+                    .orElse(sender);
+            fcmService.sendPrivateMessagePush(recipient, senderDisplayName, chatMessage.getContent());
         }
     }
 
