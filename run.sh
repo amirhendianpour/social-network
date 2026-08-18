@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/chat_project/social-network
+cd /opt/social/social-network
 set -a
 source .env
 set +a

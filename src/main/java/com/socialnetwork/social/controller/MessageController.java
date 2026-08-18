@@ -9,6 +9,7 @@ import com.socialnetwork.social.service.GroupMessageService;
 import com.socialnetwork.social.service.GroupService;
 import com.socialnetwork.social.service.MessageService; // سرویسی که در گام هشتم ساختید
 import com.socialnetwork.social.session.UserSessionRegistry;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -17,10 +18,10 @@ import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Controller
+@RequiredArgsConstructor
 public class MessageController {
     private final FcmService fcmService;
     private final com.socialnetwork.social.repository.UserRepository userRepository;
@@ -84,7 +85,7 @@ public class MessageController {
             messagingTemplate.convertAndSendToUser(username, "/queue/messages", msg);
 
             // شلیک تیک دوم (✓✓) برای فرستنده اصلی با همان آیدی متنی کلاینت
-            MessageReceipt receipt = new MessageReceipt(msg.getId(), username, msg.getSender(), "DELIVERED");
+            MessageReceipt receipt = new MessageReceipt(msg.getId(), username, msg.getSender(), "DELIVERED", null);
             System.out.println("Sending DELIVERED receipt to: " + msg.getSender() + " for message UUID: " + msg.getId());
             messagingTemplate.convertAndSendToUser(msg.getSender(), "/queue/receipts", receipt);
         }
@@ -96,23 +97,8 @@ public class MessageController {
     // --- مسیر جدید برای دریافت و هدایت رسیدها (تیک‌ها) ---
     @MessageMapping("/chat/receipt")
     public void processReceipt(@Payload MessageReceipt receipt, Principal principal) {
-        // کسی که این رسید را می‌فرستد از روی توکنش احراز هویت می‌شود
         receipt.setSender(principal.getName());
-
-        // کسی که باید تیک‌ها را ببیند
-        String originalSender = receipt.getRecipient();
-
-        // آیا فرستنده اصلی آنلاین است که تیک‌ها را الان ببیند؟
-        if (sessionRegistry.isUserOnline(originalSender)) {
-            System.out.println("Sending " + receipt.getStatus() + " receipt to: " + originalSender);
-            // ارسال رسید به صف اختصاصی دریافت تیک‌ها
-            messagingTemplate.convertAndSendToUser(
-                    originalSender, "/queue/receipts", receipt);
-        } else {
-            // اگر فرستنده اصلی آفلاین بود، فعلا لاگ می‌اندازیم.
-            // در معماری پیشرفته می‌توانید این رسیدها را هم در دیتابیس ذخیره کنید تا بعدا ببیند.
-            System.out.println("کاربر " + originalSender + " آفلاین است. امکان نمایش تیک در حال حاضر وجود ندارد.");
-        }
+        messageService.relayReceipt(receipt);
     }
 
     // ۴. هدایت سیگنال‌های موقتی «در حال تایپ...» (بدون نیاز به دیتابیس)
@@ -180,29 +166,27 @@ public class MessageController {
         }
     }
 
-    // --- جدید: کلاینت این را وقتی چت گروه را باز می‌کند صدا می‌زند ---
     @MessageMapping("/group/read")
     public void processGroupRead(@Payload GroupReadRequest request, Principal principal) {
         String username = principal.getName();
         Long groupId = request.getGroupId();
 
-        List<GroupMessage> unread = groupMessageService.getUnreadMessagesForReader(groupId, username);
-        if (unread.isEmpty()) return;
+        List<String> memberUsernames = groupService.getGroupMembers(groupId).stream()
+                .map(GroupMember::getUsername)
+                .toList();
 
-        for (GroupMessage msg : unread) {
-            groupMessageService.markRead(msg.getId(), username);
-        }
-
-        List<GroupMember> members = groupService.getGroupMembers(groupId);
-        Map<String, List<GroupMember>> ignore = null;
-
-        // به ازای هر پیام، وضعیت تجمیعی جدید را به فرستنده‌اش اطلاع بده
-        for (GroupMessage msg : unread) {
-            List<String> recipientUsernames = members.stream()
-                    .map(GroupMember::getUsername)
-                    .filter(u -> !u.equals(msg.getSender()))
-                    .collect(Collectors.toList());
-            groupMessageService.notifySenderOfStatus(msg, recipientUsernames);
+        // ۲. اطلاع‌رسانی به بقیه اعضا
+        for (String member : memberUsernames) {
+            if (!member.equals(username)) {
+                MessageReceipt groupReceipt = new MessageReceipt(
+                        null,
+                        username,
+                        member,
+                        "READ",
+                        groupId
+                );
+                messageService.relayReceipt(groupReceipt);
+            }
         }
     }
 }

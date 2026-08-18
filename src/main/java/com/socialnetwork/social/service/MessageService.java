@@ -1,9 +1,11 @@
 package com.socialnetwork.social.service;
 
 import com.socialnetwork.social.dto.ChatMessage;
+import com.socialnetwork.social.dto.MessageReceipt;
 import com.socialnetwork.social.entity.Message;
 import com.socialnetwork.social.repository.MessageRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,14 +13,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class MessageService {
 
     private final MessageRepository messageRepository;
-
-    @Autowired
-    public MessageService(MessageRepository messageRepository) {
-        this.messageRepository = messageRepository;
-    }
+    private final SimpMessagingTemplate messagingTemplate;
 
     // ذخیره پیام جدید در دیتابیس
     public void saveMessage(ChatMessage chatMessage) {
@@ -71,4 +70,22 @@ public class MessageService {
         }
     }
 
+    public void relayReceipt(MessageReceipt receipt) {
+        try {
+            String destination = (receipt.getGroupId() != null)
+                    ? "/queue/group-receipts"
+                    : "/queue/receipts";
+
+            messagingTemplate.convertAndSendToUser(
+                    receipt.getRecipient(),
+                    destination,
+                    receipt
+            );
+
+            // نکته سیگنالی: اگر می‌خواهید مطمئن شوید رسید حتماً می‌رسد حتی اگر فرستنده آفلاین باشد،
+            // باید اینجا چک کنید اگر کاربر آنلاین نبود، این رسید را در دیتابیس موقت (Pending) ذخیره کنید.
+        } catch (Exception e) {
+            // Log error
+        }
+    }
 }
