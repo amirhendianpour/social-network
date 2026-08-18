@@ -1,11 +1,9 @@
 package com.socialnetwork.social.controller; // نام پکیج اصلی خود را جایگزین کنید
 
-import com.socialnetwork.social.dto.ChatMessage; // مسیر کلاس DTO خود را چک کنید
-import com.socialnetwork.social.dto.GroupChatMessage;
-import com.socialnetwork.social.dto.MessageReceipt;
-import com.socialnetwork.social.dto.TypingEvent;
+import com.socialnetwork.social.dto.*;
 import com.socialnetwork.social.entity.GroupMember;
 import com.socialnetwork.social.entity.GroupMessage;
+import com.socialnetwork.social.repository.GroupMessageRepository;
 import com.socialnetwork.social.service.FcmService;
 import com.socialnetwork.social.service.GroupMessageService;
 import com.socialnetwork.social.service.GroupService;
@@ -19,6 +17,8 @@ import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Controller
 public class MessageController {
@@ -30,17 +30,19 @@ public class MessageController {
 
     private final GroupService groupService;
     private final GroupMessageService groupMessageService;
+    private final GroupMessageRepository groupMessageRepository;
 
     @Autowired
     public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService,
                              GroupService groupService, GroupMessageService groupMessageService,
-                             FcmService fcmService, com.socialnetwork.social.repository.UserRepository userRepository) {
+                             FcmService fcmService, com.socialnetwork.social.repository.UserRepository userRepository, GroupMessageRepository groupMessageRepository) {
         this.messagingTemplate = messagingTemplate;
         this.messageService = messageService;
         this.groupService = groupService;
         this.groupMessageService = groupMessageService;
         this.fcmService = fcmService;
         this.userRepository = userRepository;
+        this.groupMessageRepository = groupMessageRepository;
     }
 
     @Autowired
@@ -126,7 +128,6 @@ public class MessageController {
         }
     }
 
-    // --- مسیر جدید برای دریافت و توزیع پیام‌های گروهی ---
     @MessageMapping("/group/chat")
     public void processGroupMessage(@Payload GroupChatMessage chatMessage, Principal principal) {
         String sender = principal.getName();
@@ -137,35 +138,71 @@ public class MessageController {
         chatMessage.setTimestamp(savedMsg.getTimestamp());
 
         List<GroupMember> members = groupService.getGroupMembers(groupId);
+        List<String> recipientUsernames = members.stream()
+                .map(GroupMember::getUsername)
+                .filter(u -> !u.equals(sender))
+                .collect(Collectors.toList());
 
-        for (GroupMember member : members) {
-            String memberName = member.getUsername();
-            if (memberName.equals(sender)) continue;
-
+        for (String memberName : recipientUsernames) {
             if (sessionRegistry.isUserOnline(memberName)) {
-                // ارسال مستقیم به صف اختصاصی خود کاربر (نه به تاپیک عمومی)
-                // این‌طوری فارغ از اینکه UI کلاینت گروه جدید رو "می‌شناسه" یا نه، پیام می‌رسه
                 messagingTemplate.convertAndSendToUser(memberName, "/queue/group-messages", chatMessage);
+                groupMessageService.markDelivered(savedMsg.getId(), memberName);
             } else {
                 groupMessageService.saveOfflineDelivery(savedMsg.getId(), memberName);
             }
         }
+
+        // اطلاع فوری به فرستنده از وضعیت اولیه (SENT یا DELIVERED اگر همه آنلاین بودند)
+        groupMessageService.notifySenderOfStatus(savedMsg, recipientUsernames);
     }
 
-    // --- مسیر جدید برای درخواست پیام‌های آفلاین گروه ---
     @MessageMapping("/group/history")
     public void getOfflineGroupMessages(Principal principal) {
         String username = principal.getName();
-
         List<GroupChatMessage> offlineMessages = groupMessageService.getOfflineGroupMessages(username);
 
-        System.out.println("تعداد پیام‌های آفلاین گروه برای کاربر " + username + " برابر است با: " + offlineMessages.size());
-
         for (GroupChatMessage msg : offlineMessages) {
-            // نکته بسیار مهم: پیام‌های گذشته گروه نباید به آدرس عمومی /topic برود!
-            // چون در آن صورت همه اعضا دوباره پیام‌های قدیمی شما را می‌بینند.
-            // باید آن را به صف اختصاصیِ خود کاربر بفرستیم:
             messagingTemplate.convertAndSendToUser(username, "/queue/group-history", msg);
+        }
+
+        if (offlineMessages.isEmpty()) return;
+
+        List<String> clientIds = offlineMessages.stream().map(GroupChatMessage::getId).collect(Collectors.toList());
+        List<GroupMessage> distinctMessages = groupMessageService.findByClientMessageIds(clientIds);
+
+        for (GroupMessage msg : distinctMessages) {
+            List<GroupMember> members = groupService.getGroupMembers(msg.getGroupId());
+            List<String> recipientUsernames = members.stream()
+                    .map(GroupMember::getUsername)
+                    .filter(u -> !u.equals(msg.getSender()))
+                    .collect(Collectors.toList());
+            groupMessageService.notifySenderOfStatus(msg, recipientUsernames);
+        }
+    }
+
+    // --- جدید: کلاینت این را وقتی چت گروه را باز می‌کند صدا می‌زند ---
+    @MessageMapping("/group/read")
+    public void processGroupRead(@Payload GroupReadRequest request, Principal principal) {
+        String username = principal.getName();
+        Long groupId = request.getGroupId();
+
+        List<GroupMessage> unread = groupMessageService.getUnreadMessagesForReader(groupId, username);
+        if (unread.isEmpty()) return;
+
+        for (GroupMessage msg : unread) {
+            groupMessageService.markRead(msg.getId(), username);
+        }
+
+        List<GroupMember> members = groupService.getGroupMembers(groupId);
+        Map<String, List<GroupMember>> ignore = null;
+
+        // به ازای هر پیام، وضعیت تجمیعی جدید را به فرستنده‌اش اطلاع بده
+        for (GroupMessage msg : unread) {
+            List<String> recipientUsernames = members.stream()
+                    .map(GroupMember::getUsername)
+                    .filter(u -> !u.equals(msg.getSender()))
+                    .collect(Collectors.toList());
+            groupMessageService.notifySenderOfStatus(msg, recipientUsernames);
         }
     }
 }
