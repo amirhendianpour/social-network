@@ -1,43 +1,46 @@
 package com.socialnetwork.social.config; // نام پکیج اصلی خود را جایگزین کنید
 
 import com.socialnetwork.social.dto.ChatMessage;
-import com.socialnetwork.social.entity.Message;
+import com.socialnetwork.social.dto.UserStatusDto;
 import com.socialnetwork.social.service.MessageService;
 import com.socialnetwork.social.session.UserSessionRegistry;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.messaging.SessionConnectedEvent;
+import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
 import java.security.Principal;
+import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 @Component
+@RequiredArgsConstructor
 public class WebSocketEventListener {
 
-    @Autowired
-    private UserSessionRegistry sessionRegistry;
+    private final UserSessionRegistry sessionRegistry;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Autowired
     private MessageService messageService;
 
-    @Autowired
-    private SimpMessagingTemplate messagingTemplate;
-
     // مرحله ۱: کاربر متصل می‌شود (فقط وضعیت او را آنلاین می‌کنیم)
     @EventListener
-    public void handleWebSocketConnectListener(SessionConnectedEvent event) {
+    public void handleWebSocketConnectListener(SessionConnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-        Principal userPrincipal = headerAccessor.getUser();
+        String username = Objects.requireNonNull(headerAccessor.getUser()).getName();
 
-        if (userPrincipal != null) {
-            String username = userPrincipal.getName();
-            String sessionId = headerAccessor.getSessionId();
-            sessionRegistry.registerSession(username, sessionId);
+        if (username != null) {
+            sessionRegistry.registerSession(username, headerAccessor.getSessionId());
+
+            // اطلاع‌رسانی به همه: این کاربر آنلاین شد
+            UserStatusDto status = new UserStatusDto(username, true, null);
+            messagingTemplate.convertAndSend("/topic/user-status", status);
         }
     }
 
@@ -72,11 +75,19 @@ public class WebSocketEventListener {
     @EventListener
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-        Principal userPrincipal = headerAccessor.getUser();
+        String username = (String) Objects.requireNonNull(headerAccessor.getSessionAttributes()).get("username");
 
-        if (userPrincipal != null) {
-            String username = userPrincipal.getName();
+        // اگر در attributes نبود، از principal بگیرید
+        if (username == null && headerAccessor.getUser() != null) {
+            username = headerAccessor.getUser().getName();
+        }
+
+        if (username != null) {
             sessionRegistry.removeSession(username);
+
+            // اطلاع‌رسانی به همه: این کاربر آفلاین شد + زمان آخرین بازدید
+            UserStatusDto status = new UserStatusDto(username, false, Instant.now().toString());
+            messagingTemplate.convertAndSend("/topic/user-status", status);
         }
     }
 }
