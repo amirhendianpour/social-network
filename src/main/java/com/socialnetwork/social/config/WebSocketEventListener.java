@@ -1,4 +1,4 @@
-package com.socialnetwork.social.config; // نام پکیج اصلی خود را جایگزین کنید
+package com.socialnetwork.social.config;
 
 import com.socialnetwork.social.dto.ChatMessage;
 import com.socialnetwork.social.dto.UserStatusDto;
@@ -17,7 +17,6 @@ import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 import java.security.Principal;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
@@ -29,55 +28,50 @@ public class WebSocketEventListener {
     @Autowired
     private MessageService messageService;
 
-    // مرحله ۱: کاربر متصل می‌شود (فقط وضعیت او را آنلاین می‌کنیم)
     @EventListener
     public void handleWebSocketConnectListener(SessionConnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-        String username = Objects.requireNonNull(headerAccessor.getUser()).getName();
+        Principal user = headerAccessor.getUser();
 
-        if (username != null) {
+        if (user != null) {
+            String username = user.getName();
             sessionRegistry.registerSession(username, headerAccessor.getSessionId());
 
-            // اطلاع‌رسانی به همه: این کاربر آنلاین شد
+            // اطلاع‌رسانی آنلاین شدن
             UserStatusDto status = new UserStatusDto(username, true, null);
             messagingTemplate.convertAndSend("/topic/user-status", status);
         }
     }
 
-    // مرحله ۲: کاربر به کانال دریافت پیام متصل می‌شود (اینجا پیام‌های معوقه را می‌فرستیم)
     @EventListener
     public void handleWebSocketSubscribeListener(SessionSubscribeEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
         Principal userPrincipal = headerAccessor.getUser();
         String destination = headerAccessor.getDestination();
 
-        // بررسی می‌کنیم که حتماً به مسیر پیام‌های شخصی (queue/messages) گوش داده باشد
         if (userPrincipal != null && destination != null && destination.endsWith("/queue/messages")) {
             String username = userPrincipal.getName();
-
-            // حالا که کلاینت ۱۰۰٪ آماده شنیدن است، پیام‌ها را از دیتابیس می‌کشیم و می‌فرستیم
             List<ChatMessage> pendingMessages = messageService.getUnreadMessages(username);
 
             for (ChatMessage msg : pendingMessages) {
-                messagingTemplate.convertAndSendToUser(
-                        username,
-                        "/queue/messages",
-                        msg
-                );
+                messagingTemplate.convertAndSendToUser(username, "/queue/messages", msg);
             }
-            if(!pendingMessages.isEmpty()){
+            if (!pendingMessages.isEmpty()) {
                 System.out.println("ارسال " + pendingMessages.size() + " پیام آفلاین به کاربر: " + username);
             }
         }
     }
 
-    // مرحله ۳: کاربر قطع می‌شود
     @EventListener
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-        String username = (String) Objects.requireNonNull(headerAccessor.getSessionAttributes()).get("username");
+        String username = null;
 
-        // اگر در attributes نبود، از principal بگیرید
+        // استخراج نام کاربری با ایمنی بالا
+        if (headerAccessor.getSessionAttributes() != null) {
+            username = (String) headerAccessor.getSessionAttributes().get("username");
+        }
+
         if (username == null && headerAccessor.getUser() != null) {
             username = headerAccessor.getUser().getName();
         }
@@ -85,7 +79,7 @@ public class WebSocketEventListener {
         if (username != null) {
             sessionRegistry.removeSession(username);
 
-            // اطلاع‌رسانی به همه: این کاربر آفلاین شد + زمان آخرین بازدید
+            // اطلاع‌رسانی آفلاین شدن + زمان آخرین بازدید
             UserStatusDto status = new UserStatusDto(username, false, Instant.now().toString());
             messagingTemplate.convertAndSend("/topic/user-status", status);
         }
