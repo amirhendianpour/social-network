@@ -37,7 +37,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureMessageBroker(MessageBrokerRegistry config) {
         config.enableSimpleBroker("/topic", "/queue")
                 .setHeartbeatValue(new long[]{10000, 10000})
-                .setTaskScheduler(messageBrokerTaskScheduler());
+                .setTaskScheduler(heartbeatTaskScheduler());
         config.setApplicationDestinationPrefixes("/app");
         config.setUserDestinationPrefix("/user");
     }
@@ -90,7 +90,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     // تعریف دقیق Bean تسک‌اسکجولر برای هندل کردن پالس‌های زنده بودن (Heartbeat)
     @Bean
-    public TaskScheduler messageBrokerTaskScheduler() {
+    public TaskScheduler heartbeatTaskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(1);
         scheduler.setThreadNamePrefix("wss-heartbeat-thread-");
