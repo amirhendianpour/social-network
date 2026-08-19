@@ -37,6 +37,11 @@ public class WebSocketEventListener {
             String username = user.getName();
             sessionRegistry.registerSession(username, headerAccessor.getSessionId());
 
+            // *** نکته مهم: ذخیره یوزرنیم برای استفاده در Disconnect ***
+            if (headerAccessor.getSessionAttributes() != null) {
+                headerAccessor.getSessionAttributes().put("username", username);
+            }
+
             // اطلاع‌رسانی آنلاین شدن
             UserStatusDto status = new UserStatusDto(username, true, null);
             messagingTemplate.convertAndSend("/topic/user-status", status);
@@ -65,21 +70,17 @@ public class WebSocketEventListener {
     @EventListener
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-        String username = null;
 
-        // استخراج نام کاربری با ایمنی بالا
+        // استخراج یوزرنیم از Attributes (امن‌ترین روش در لحظه دیسکانکت)
+        String username = null;
         if (headerAccessor.getSessionAttributes() != null) {
             username = (String) headerAccessor.getSessionAttributes().get("username");
-        }
-
-        if (username == null && headerAccessor.getUser() != null) {
-            username = headerAccessor.getUser().getName();
         }
 
         if (username != null) {
             sessionRegistry.removeSession(username);
 
-            // اطلاع‌رسانی آفلاین شدن + زمان آخرین بازدید
+            // اطلاع‌رسانی آفلاین شدن بلافاصله
             UserStatusDto status = new UserStatusDto(username, false, Instant.now().toString());
             messagingTemplate.convertAndSend("/topic/user-status", status);
         }
