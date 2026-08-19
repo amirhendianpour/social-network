@@ -50,6 +50,16 @@ public class ProfileService {
             user.setBio(bio.isEmpty() ? null : bio);
         }
 
+        // اضافه کردن ایمیل اگر قبلاً نبوده
+        if (user.getEmail() == null && request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            user.setEmail(request.getEmail().trim());
+        }
+
+        // اضافه کردن شماره موبایل اگر قبلاً نبوده
+        if (user.getPhoneNumber() == null && request.getPhoneNumber() != null && !request.getPhoneNumber().trim().isEmpty()) {
+            user.setPhoneNumber(request.getPhoneNumber().trim());
+        }
+
         userRepository.save(user);
         return toResponse(user);
     }
