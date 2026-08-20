@@ -189,4 +189,21 @@ public class MessageController {
             }
         }
     }
+
+    @MessageMapping("/chat/edit")
+    public void processMessageEdit(@Payload ChatMessage message, Principal principal) {
+        // رله کردن پیام ویرایش شده به گیرنده
+        // در اندروید باید چک کنیم اگر پیامی با این ID وجود دارد، محتوایش را آپدیت کنیم
+        messagingTemplate.convertAndSendToUser(message.getRecipient(), "/queue/messages", message);
+    }
+
+    @MessageMapping("/group/edit")
+    public void processGroupMessageEdit(@Payload GroupChatMessage message, Principal principal) {
+        // رله کردن به تمام اعضای گروه
+        groupService.getGroupMembers(message.getGroupId()).forEach(member -> {
+            if (!member.getUsername().equals(principal.getName())) {
+                messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages", message);
+            }
+        });
+    }
 }
