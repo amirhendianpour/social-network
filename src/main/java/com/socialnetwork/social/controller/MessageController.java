@@ -206,4 +206,39 @@ public class MessageController {
             }
         });
     }
+
+    /**
+     * حذف دوطرفه پیام در چت خصوصی
+     */
+    @MessageMapping("/chat/delete")
+    public void processMessageDelete(@Payload MessageDeleteDto deleteDto, Principal principal) {
+        // امنیت: فرستنده سیگنال حذف باید خودش باشد
+        // ما اینجا فقط سیگنال را به گیرنده رله می‌کنیم
+        if (deleteDto.getRecipient() != null) {
+            messagingTemplate.convertAndSendToUser(
+                    deleteDto.getRecipient(),
+                    "/queue/messages/delete",
+                    deleteDto
+            );
+        }
+    }
+
+    /**
+     * حذف دوطرفه پیام در چت گروهی
+     */
+    @MessageMapping("/group/delete")
+    public void processGroupMessageDelete(@Payload MessageDeleteDto deleteDto, Principal principal) {
+        if (deleteDto.getGroupId() != null) {
+            // رله کردن سیگنال به تمام اعضای گروه به جز خودِ حذف‌کننده
+            groupService.getGroupMembers(deleteDto.getGroupId()).forEach(member -> {
+                if (!member.getUsername().equals(principal.getName())) {
+                    messagingTemplate.convertAndSendToUser(
+                            member.getUsername(),
+                            "/queue/group-messages/delete",
+                            deleteDto
+                    );
+                }
+            });
+        }
+    }
 }
