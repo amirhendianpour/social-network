@@ -44,14 +44,20 @@ public class UserController {
         }
     }
 
-    // دریافت نام چند کاربر به‌صورت یکجا، بر اساس username داخلی — برای نمایش نام واقعی در لیست چت‌ها/پیام‌ها
     @PostMapping("/batch-info")
     public ResponseEntity<List<UserInfo>> batchInfo(@RequestBody BatchInfoRequest request) {
-        List<User> users = userRepository.findByUsernameIn(request.getUsernames());
-        List<UserInfo> result = users.stream()
-                .map(u -> new UserInfo(u.getUsername(), u.getFirstName(), u.getLastName(), u.getProfilePictureUrl()))
+        List<UserInfo> results = userRepository.findByUsernameIn(request.getUsernames())
+                .stream()
+                .map(u -> new UserInfo(
+                        u.getUsername(),
+                        u.getFirstName(),
+                        u.getLastName(),
+                        u.getProfilePictureUrl(),
+                        u.getEmail(),
+                        u.getPhoneNumber()
+                ))
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(results);
     }
 
     @PostMapping("/contacts/sync")
