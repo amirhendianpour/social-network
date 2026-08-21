@@ -34,7 +34,10 @@ public class MediaController {
             if (!dir.exists()) dir.mkdirs();
 
             String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            String extension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
             String newFilename = UUID.randomUUID() + extension;
 
             Path path = Paths.get(uploadDir + newFilename);

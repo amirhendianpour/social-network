@@ -44,6 +44,7 @@ public class SecurityConfig {
                                 "/api/auth/otp/request",
                                 "/api/auth/otp/verify",
                                 "/api/auth/login/password",
+                                "/api/media/upload",
                                 "/ws-chat/**",
                                 "/uploads/**"
                         ).permitAll()
