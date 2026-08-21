@@ -6,6 +6,7 @@ import com.socialnetwork.social.dto.ContactSyncRequest;
 import com.socialnetwork.social.dto.UserInfo;
 import com.socialnetwork.social.entity.User;
 import com.socialnetwork.social.repository.UserRepository;
+import com.socialnetwork.social.service.ProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,20 +20,28 @@ import java.util.stream.Collectors;
 public class UserController {
 
     private final UserRepository userRepository;
+    private final ProfileService profileService;
 
     @Autowired
-    public UserController(UserRepository userRepository) {
+    public UserController(UserRepository userRepository, ProfileService profileService) {
         this.userRepository = userRepository;
+        this.profileService = profileService;
     }
 
-    // جستجوی یک کاربر با شماره موبایل یا ایمیل — برای «شروع چت جدید» یا «افزودن عضو به گروه»
     @GetMapping("/lookup")
     public ResponseEntity<?> lookupUser(@RequestParam String identifier) {
-        return userRepository.findByEmailOrPhoneNumber(identifier)
-                .map(user -> ResponseEntity.ok(
-                        (Object) new UserInfo(user.getUsername(), user.getFirstName(), user.getLastName(), user.getProfilePictureUrl())
-                ))
-                .orElseGet(() -> ResponseEntity.status(404).body(Map.of("error", "کاربری با این مشخصات یافت نشد.")));
+        // ۱. پیدا کردن یوزر در دیتابیس
+        var userOpt = userRepository.findByEmailOrPhoneNumber(identifier);
+
+        if (userOpt.isPresent()) {
+            // ۲. اگر پیدا شد: تبدیل به پروفایل کامل و ارسال (200 OK)
+            var user = userOpt.get();
+            var profile = profileService.getProfile(user.getUsername());
+            return ResponseEntity.ok(profile);
+        } else {
+            // ۳. اگر پیدا نشد: ارسال پیام خطا (404 Not Found)
+            return ResponseEntity.status(404).body(Map.of("error", "کاربری با این مشخصات یافت نشد."));
+        }
     }
 
     // دریافت نام چند کاربر به‌صورت یکجا، بر اساس username داخلی — برای نمایش نام واقعی در لیست چت‌ها/پیام‌ها
