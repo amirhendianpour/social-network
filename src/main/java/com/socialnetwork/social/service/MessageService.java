@@ -31,6 +31,7 @@ public class MessageService {
         );
         message.setMessageType(chatMessage.getMessageType());
         message.setFileUrl(chatMessage.getFileUrl());
+        message.setReplyToId(chatMessage.getReplyToId());
 
         messageRepository.save(message);
     }
@@ -50,6 +51,7 @@ public class MessageService {
                     dto.setContent(msg.getContent());
                     dto.setMessageType(msg.getMessageType());
                     dto.setFileUrl(msg.getFileUrl());
+                    dto.setReplyToId(msg.getReplyToId());
                     dto.setTimestamp(msg.getTimestamp());
                     return dto;
                 })

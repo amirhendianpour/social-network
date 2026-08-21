@@ -43,6 +43,7 @@ public class GroupMessageService {
                 chatMessage.getSender(),
                 chatMessage.getContent()
         );
+        message.setReplyToId(chatMessage.getReplyToId());
         return groupMessageRepository.save(message);
     }
 
@@ -135,6 +136,7 @@ public class GroupMessageService {
                 dto.setGroupId(msg.getGroupId());
                 dto.setSender(msg.getSender());
                 dto.setContent(msg.getContent());
+                dto.setReplyToId(msg.getReplyToId());
                 dto.setTimestamp(msg.getTimestamp());
                 offlineMessages.add(dto);
 

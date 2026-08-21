@@ -22,6 +22,8 @@ public class Message {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    private String replyToId;
+
     private Instant timestamp;
 
     public Message() {}
@@ -48,6 +50,10 @@ public class Message {
     public void setRecipient(String recipient) { this.recipient = recipient; }
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+
+    public String getReplyToId() { return replyToId; }
+    public void setReplyToId(String replyToId) { this.replyToId = replyToId; }
+
     public Instant getTimestamp() { return timestamp; }
     public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
 

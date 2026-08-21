@@ -8,6 +8,7 @@ public class GroupChatMessage {
     private Long groupId;
     private String sender;
     private String content;
+    private String replyToId;
     private Instant timestamp;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
@@ -28,4 +29,7 @@ public class GroupChatMessage {
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+
+    public String getReplyToId() { return replyToId; }
+    public void setReplyToId(String replyToId) { this.replyToId = replyToId; }
 }
