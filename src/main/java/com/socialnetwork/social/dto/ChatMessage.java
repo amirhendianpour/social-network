@@ -11,6 +11,7 @@ public class ChatMessage {
     private String messageType = "TEXT"; // می‌تواند "TEXT" یا "IMAGE" یا "FILE" باشد
     private String fileUrl;
     private String replyToId;
+    private String mediaKey;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
     private Instant timestamp;
@@ -44,6 +45,9 @@ public class ChatMessage {
 
     public String getReplyToId() { return replyToId; }
     public void setReplyToId(String replyToId) { this.replyToId = replyToId; }
+
+    public String getMediaKey() { return mediaKey; }
+    public void setMediaKey(String mediaKey) { this.mediaKey = mediaKey; }
 
     public Instant getTimestamp() { return timestamp; }
     public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }

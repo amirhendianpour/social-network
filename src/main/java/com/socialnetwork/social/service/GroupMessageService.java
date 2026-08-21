@@ -44,6 +44,7 @@ public class GroupMessageService {
                 chatMessage.getContent()
         );
         message.setReplyToId(chatMessage.getReplyToId());
+        message.setMediaKey(chatMessage.getMediaKey());
         return groupMessageRepository.save(message);
     }
 
@@ -137,6 +138,7 @@ public class GroupMessageService {
                 dto.setSender(msg.getSender());
                 dto.setContent(msg.getContent());
                 dto.setReplyToId(msg.getReplyToId());
+                dto.setMediaKey(msg.getMediaKey());
                 dto.setTimestamp(msg.getTimestamp());
                 offlineMessages.add(dto);
 

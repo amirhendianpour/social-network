@@ -137,6 +137,10 @@ public class MessageController {
                 groupMessageService.saveOfflineDelivery(savedMsg.getId(), memberName);
             }
         }
+        
+        // همگام‌سازی فیلدهای تکمیلی برای فرستنده
+        chatMessage.setMediaKey(savedMsg.getMediaKey());
+        chatMessage.setReplyToId(savedMsg.getReplyToId());
 
         // اطلاع فوری به فرستنده از وضعیت اولیه (SENT یا DELIVERED اگر همه آنلاین بودند)
         groupMessageService.notifySenderOfStatus(savedMsg, recipientUsernames);

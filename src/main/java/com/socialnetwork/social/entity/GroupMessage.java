@@ -19,6 +19,7 @@ public class GroupMessage {
     private String content;
 
     private String replyToId;
+    private String mediaKey;
 
     private Instant timestamp;
 
@@ -50,6 +51,9 @@ public class GroupMessage {
 
     public String getReplyToId() { return replyToId; }
     public void setReplyToId(String replyToId) { this.replyToId = replyToId; }
+
+    public String getMediaKey() { return mediaKey; }
+    public void setMediaKey(String mediaKey) { this.mediaKey = mediaKey; }
 
     public Instant getTimestamp() { return timestamp; }
     public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
