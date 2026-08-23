@@ -1,16 +1,16 @@
-package com.socialnetwork.social.controller; // نام پکیج اصلی خود را جایگزین کنید
+package com.socialnetwork.social.controller;
 
 import com.socialnetwork.social.dto.*;
 import com.socialnetwork.social.entity.GroupMember;
 import com.socialnetwork.social.entity.GroupMessage;
 import com.socialnetwork.social.repository.GroupMessageRepository;
+import com.socialnetwork.social.repository.UserRepository;
 import com.socialnetwork.social.service.FcmService;
 import com.socialnetwork.social.service.GroupMessageService;
 import com.socialnetwork.social.service.GroupService;
-import com.socialnetwork.social.service.MessageService; // سرویسی که در گام هشتم ساختید
+import com.socialnetwork.social.service.MessageService;
 import com.socialnetwork.social.session.UserSessionRegistry;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -23,48 +23,27 @@ import java.util.stream.Collectors;
 @Controller
 @RequiredArgsConstructor
 public class MessageController {
-    private final FcmService fcmService;
-    private final com.socialnetwork.social.repository.UserRepository userRepository;
 
+    private final FcmService fcmService;
+    private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final MessageService messageService;
-
     private final GroupService groupService;
     private final GroupMessageService groupMessageService;
     private final GroupMessageRepository groupMessageRepository;
-
-    @Autowired
-    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService,
-                             GroupService groupService, GroupMessageService groupMessageService,
-                             FcmService fcmService, com.socialnetwork.social.repository.UserRepository userRepository, GroupMessageRepository groupMessageRepository) {
-        this.messagingTemplate = messagingTemplate;
-        this.messageService = messageService;
-        this.groupService = groupService;
-        this.groupMessageService = groupMessageService;
-        this.fcmService = fcmService;
-        this.userRepository = userRepository;
-        this.groupMessageRepository = groupMessageRepository;
-    }
-
-    @Autowired
-    private UserSessionRegistry sessionRegistry;
+    private final UserSessionRegistry sessionRegistry;
 
     @MessageMapping("/chat")
     public void processMessage(@Payload ChatMessage chatMessage, Principal principal) {
         String sender = principal.getName();
         chatMessage.setSender(sender);
         chatMessage.setTimestamp(java.time.Instant.now());
-
         String recipient = chatMessage.getRecipient();
 
         if (sessionRegistry.isUserOnline(recipient)) {
-            System.out.println("Direct send to online user: " + recipient);
             messagingTemplate.convertAndSendToUser(recipient, "/queue/messages", chatMessage);
         } else {
-            System.out.println("User offline. Saving message in DB for: " + recipient);
             messageService.saveMessage(chatMessage);
-
-            // کاربر آفلاین است -> نوتیف Push هم بفرست
             String senderDisplayName = userRepository.findByUsername(sender)
                     .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
                     .orElse(sender);
@@ -72,45 +51,51 @@ public class MessageController {
         }
     }
 
-    // ۲. ارسال پیام‌های آفلاین انباشته‌شده به محض آنلاین شدن کاربر و صدور تیک دلیوری
     @MessageMapping("/chat/history")
     public void getOfflineMessages(Principal principal) {
         String username = principal.getName();
         List<ChatMessage> offlineMessages = messageService.getUnreadMessages(username);
-
-        System.out.println("تعداد پیام‌های آفلاین برای کاربر " + username + " برابر است با: " + offlineMessages.size());
-
         for (ChatMessage msg : offlineMessages) {
-            // تحویل پیام آفلاین به کاربر مقصد
             messagingTemplate.convertAndSendToUser(username, "/queue/messages", msg);
-
-            // شلیک تیک دوم (✓✓) برای فرستنده اصلی با همان آیدی متنی کلاینت
             MessageReceipt receipt = new MessageReceipt(msg.getId(), username, msg.getSender(), "DELIVERED", null);
-            System.out.println("Sending DELIVERED receipt to: " + msg.getSender() + " for message UUID: " + msg.getId());
             messagingTemplate.convertAndSendToUser(msg.getSender(), "/queue/receipts", receipt);
         }
-
-        // پاک کردن کامل پیام‌های موقت تحویل داده شده از دیتابیس
         messageService.markAsRead(username);
     }
 
-    // --- مسیر جدید برای دریافت و هدایت رسیدها (تیک‌ها) ---
     @MessageMapping("/chat/receipt")
     public void processReceipt(@Payload MessageReceipt receipt, Principal principal) {
         receipt.setSender(principal.getName());
         messageService.relayReceipt(receipt);
     }
 
-    // ۴. هدایت سیگنال‌های موقتی «در حال تایپ...» (بدون نیاز به دیتابیس)
     @MessageMapping("/chat/typing")
     public void processTypingEvent(@Payload TypingEvent typingEvent, Principal principal) {
         typingEvent.setSender(principal.getName());
         String recipient = typingEvent.getRecipient();
-
-        // رویداد فقط به گیرنده آنلاین ارسال می‌شود
         if (sessionRegistry.isUserOnline(recipient)) {
-            messagingTemplate.convertAndSendToUser(
-                    recipient, "/queue/typing", typingEvent);
+            messagingTemplate.convertAndSendToUser(recipient, "/queue/typing", typingEvent);
+        }
+    }
+
+    @MessageMapping("/chat/edit")
+    public void processMessageEdit(@Payload ChatMessage message, Principal principal) {
+        messagingTemplate.convertAndSendToUser(message.getRecipient(), "/queue/messages", message);
+    }
+
+    @MessageMapping("/chat/delete")
+    public void processMessageDelete(@Payload MessageDeleteDto deleteDto, Principal principal) {
+        if (deleteDto.getRecipient() != null) {
+            messagingTemplate.convertAndSendToUser(deleteDto.getRecipient(), "/queue/messages/delete", deleteDto);
+        }
+    }
+
+    @MessageMapping("/chat/reaction")
+    public void processPrivateReaction(@Payload ReactionDto dto, Principal principal) {
+        String me = principal.getName();
+        dto.setSender(me);
+        if (dto.getRecipient() != null) {
+            messagingTemplate.convertAndSendToUser(dto.getRecipient(), "/queue/reactions", dto);
         }
     }
 
@@ -119,7 +104,6 @@ public class MessageController {
         String sender = principal.getName();
         chatMessage.setSender(sender);
         Long groupId = chatMessage.getGroupId();
-
         GroupMessage savedMsg = groupMessageService.saveMessage(chatMessage);
         chatMessage.setTimestamp(savedMsg.getTimestamp());
 
@@ -137,12 +121,8 @@ public class MessageController {
                 groupMessageService.saveOfflineDelivery(savedMsg.getId(), memberName);
             }
         }
-        
-        // همگام‌سازی فیلدهای تکمیلی برای فرستنده
         chatMessage.setMediaKey(savedMsg.getMediaKey());
         chatMessage.setReplyToId(savedMsg.getReplyToId());
-
-        // اطلاع فوری به فرستنده از وضعیت اولیه (SENT یا DELIVERED اگر همه آنلاین بودند)
         groupMessageService.notifySenderOfStatus(savedMsg, recipientUsernames);
     }
 
@@ -150,16 +130,12 @@ public class MessageController {
     public void getOfflineGroupMessages(Principal principal) {
         String username = principal.getName();
         List<GroupChatMessage> offlineMessages = groupMessageService.getOfflineGroupMessages(username);
-
         for (GroupChatMessage msg : offlineMessages) {
             messagingTemplate.convertAndSendToUser(username, "/queue/group-history", msg);
         }
-
         if (offlineMessages.isEmpty()) return;
-
         List<String> clientIds = offlineMessages.stream().map(GroupChatMessage::getId).collect(Collectors.toList());
         List<GroupMessage> distinctMessages = groupMessageService.findByClientMessageIds(clientIds);
-
         for (GroupMessage msg : distinctMessages) {
             List<GroupMember> members = groupService.getGroupMembers(msg.getGroupId());
             List<String> recipientUsernames = members.stream()
@@ -174,36 +150,18 @@ public class MessageController {
     public void processGroupRead(@Payload GroupReadRequest request, Principal principal) {
         String username = principal.getName();
         Long groupId = request.getGroupId();
-
         List<String> memberUsernames = groupService.getGroupMembers(groupId).stream()
-                .map(GroupMember::getUsername)
-                .toList();
-
-        // ۲. اطلاع‌رسانی به بقیه اعضا
+                .map(GroupMember::getUsername).toList();
         for (String member : memberUsernames) {
             if (!member.equals(username)) {
-                MessageReceipt groupReceipt = new MessageReceipt(
-                        null,
-                        username,
-                        member,
-                        "READ",
-                        groupId
-                );
+                MessageReceipt groupReceipt = new MessageReceipt(null, username, member, "READ", groupId);
                 messageService.relayReceipt(groupReceipt);
             }
         }
     }
 
-    @MessageMapping("/chat/edit")
-    public void processMessageEdit(@Payload ChatMessage message, Principal principal) {
-        // رله کردن پیام ویرایش شده به گیرنده
-        // در اندروید باید چک کنیم اگر پیامی با این ID وجود دارد، محتوایش را آپدیت کنیم
-        messagingTemplate.convertAndSendToUser(message.getRecipient(), "/queue/messages", message);
-    }
-
     @MessageMapping("/group/edit")
     public void processGroupMessageEdit(@Payload GroupChatMessage message, Principal principal) {
-        // رله کردن به تمام اعضای گروه
         groupService.getGroupMembers(message.getGroupId()).forEach(member -> {
             if (!member.getUsername().equals(principal.getName())) {
                 messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages", message);
@@ -211,36 +169,25 @@ public class MessageController {
         });
     }
 
-    /**
-     * حذف دوطرفه پیام در چت خصوصی
-     */
-    @MessageMapping("/chat/delete")
-    public void processMessageDelete(@Payload MessageDeleteDto deleteDto, Principal principal) {
-        // امنیت: فرستنده سیگنال حذف باید خودش باشد
-        // ما اینجا فقط سیگنال را به گیرنده رله می‌کنیم
-        if (deleteDto.getRecipient() != null) {
-            messagingTemplate.convertAndSendToUser(
-                    deleteDto.getRecipient(),
-                    "/queue/messages/delete",
-                    deleteDto
-            );
-        }
-    }
-
-    /**
-     * حذف دوطرفه پیام در چت گروهی
-     */
     @MessageMapping("/group/delete")
     public void processGroupMessageDelete(@Payload MessageDeleteDto deleteDto, Principal principal) {
         if (deleteDto.getGroupId() != null) {
-            // رله کردن سیگنال به تمام اعضای گروه به جز خودِ حذف‌کننده
             groupService.getGroupMembers(deleteDto.getGroupId()).forEach(member -> {
                 if (!member.getUsername().equals(principal.getName())) {
-                    messagingTemplate.convertAndSendToUser(
-                            member.getUsername(),
-                            "/queue/group-messages/delete",
-                            deleteDto
-                    );
+                    messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages/delete", deleteDto);
+                }
+            });
+        }
+    }
+
+    @MessageMapping("/group/reaction")
+    public void processGroupReaction(@Payload ReactionDto dto, Principal principal) {
+        String me = principal.getName();
+        dto.setSender(me);
+        if (dto.getGroupId() != null) {
+            groupService.getGroupMembers(dto.getGroupId()).forEach(member -> {
+                if (!member.getUsername().equals(me)) {
+                    messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-reactions", dto);
                 }
             });
         }
