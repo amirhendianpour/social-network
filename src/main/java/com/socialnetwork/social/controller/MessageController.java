@@ -186,6 +186,17 @@ public class MessageController {
         }
     }
 
+    @MessageMapping("/chat/pin")
+    public void processMessagePin(@Payload PinMessageDto pinDto, Principal principal) {
+        String sender = principal.getName();
+        log.info("Message pin event from {} for message {}: pinned={}", sender, pinDto.getMessageId(), pinDto.isPinned());
+        if (pinDto.getRecipient() != null) {
+            messagingTemplate.convertAndSendToUser(pinDto.getRecipient(), "/queue/pin", pinDto);
+            // ارسال به خود فرستنده برای همگام‌سازی سایر دستگاه‌ها
+            messagingTemplate.convertAndSendToUser(sender, "/queue/pin", pinDto);
+        }
+    }
+
     @MessageMapping("/group/delete")
     public void processGroupMessageDelete(@Payload MessageDeleteDto deleteDto, Principal principal) {
         if (deleteDto.getGroupId() != null) {
@@ -206,6 +217,17 @@ public class MessageController {
                 if (!member.getUsername().equals(me)) {
                     messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-reactions", dto);
                 }
+            });
+        }
+    }
+
+    @MessageMapping("/group/pin")
+    public void processGroupPin(@Payload PinMessageDto pinDto, Principal principal) {
+        String me = principal.getName();
+        if (pinDto.getGroupId() != null) {
+            groupService.getGroupMembers(pinDto.getGroupId()).forEach(member -> {
+                // ارسال به همه اعضا از جمله خود فرستنده (برای همگام‌سازی دستگاه‌ها)
+                messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-pin", pinDto);
             });
         }
     }
