@@ -13,8 +13,7 @@ public class ChatMessage {
     private String replyToId;
     private String mediaKey;
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-    private Instant timestamp;
+    private java.time.Instant timestamp;
 
     public ChatMessage() {}
 

@@ -10,10 +10,9 @@ public class GroupChatMessage {
     private String content;
     private String replyToId;
     private String mediaKey;
-    private Instant timestamp;
+    private java.time.Instant timestamp;
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-    public Instant getTimestamp() { return timestamp; }
+    public java.time.Instant getTimestamp() { return timestamp; }
 
     public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
     public GroupChatMessage() {}
