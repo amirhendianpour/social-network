@@ -164,17 +164,18 @@ public class MessageController {
     @MessageMapping("/chat/edit")
     public void processMessageEdit(@Payload ChatMessage message, Principal principal) {
         String sender = principal.getName();
-        message.setSender(sender); // تنظیم فرستنده برای جلوگیری از پیام ناشناس
-        messagingTemplate.convertAndSendToUser(message.getRecipient(), "/queue/messages", message);
-        messagingTemplate.convertAndSendToUser(sender, "/queue/messages", message);
+        message.setSender(sender);
+        // ارسال به مقصد اختصاصی ویرایش
+        messagingTemplate.convertAndSendToUser(message.getRecipient(), "/queue/messages/edit", message);
+        messagingTemplate.convertAndSendToUser(sender, "/queue/messages/edit", message);
     }
 
     @MessageMapping("/group/edit")
     public void processGroupMessageEdit(@Payload GroupChatMessage message, Principal principal) {
         String sender = principal.getName();
-        message.setSender(sender); // تنظیم فرستنده
+        message.setSender(sender);
         groupService.getGroupMembers(message.getGroupId()).forEach(member -> {
-            messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages", message);
+            messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages/edit", message);
         });
     }
 
