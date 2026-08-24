@@ -11,7 +11,7 @@ import com.socialnetwork.social.service.GroupService;
 import com.socialnetwork.social.service.MessageService;
 import com.socialnetwork.social.session.UserSessionRegistry;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -21,7 +21,9 @@ import java.security.Principal;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Controller
+@RequiredArgsConstructor
 public class MessageController {
 
     private final FcmService fcmService;
@@ -31,23 +33,7 @@ public class MessageController {
     private final GroupService groupService;
     private final GroupMessageService groupMessageService;
     private final GroupMessageRepository groupMessageRepository;
-    
-    @Autowired
-    private UserSessionRegistry sessionRegistry;
-
-    @Autowired
-    public MessageController(FcmService fcmService, UserRepository userRepository, 
-                             SimpMessagingTemplate messagingTemplate, MessageService messageService, 
-                             GroupService groupService, GroupMessageService groupMessageService, 
-                             GroupMessageRepository groupMessageRepository) {
-        this.fcmService = fcmService;
-        this.userRepository = userRepository;
-        this.messagingTemplate = messagingTemplate;
-        this.messageService = messageService;
-        this.groupService = groupService;
-        this.groupMessageService = groupMessageService;
-        this.groupMessageRepository = groupMessageRepository;
-    }
+    private final UserSessionRegistry sessionRegistry;
 
     @MessageMapping("/chat")
     public void processMessage(@Payload ChatMessage chatMessage, Principal principal) {
@@ -56,10 +42,14 @@ public class MessageController {
         chatMessage.setTimestamp(java.time.Instant.now());
         String recipient = chatMessage.getRecipient();
 
+        log.info("Processing message from {} to {}", sender, recipient);
+
         // ارسال به گیرنده
         if (sessionRegistry.isUserOnline(recipient)) {
+            log.info("Sending message to online user: {}", recipient);
             messagingTemplate.convertAndSendToUser(recipient, "/queue/messages", chatMessage);
         } else {
+            log.info("User {} is offline. Saving message and sending Push.", recipient);
             messageService.saveMessage(chatMessage);
             String senderDisplayName = userRepository.findByUsername(sender)
                     .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
@@ -75,6 +65,7 @@ public class MessageController {
     public void getOfflineMessages(Principal principal) {
         String username = principal.getName();
         List<ChatMessage> offlineMessages = messageService.getUnreadMessages(username);
+        log.info("Sending {} offline messages to user: {}", offlineMessages.size(), username);
         for (ChatMessage msg : offlineMessages) {
             messagingTemplate.convertAndSendToUser(username, "/queue/messages", msg);
             MessageReceipt receipt = new MessageReceipt(msg.getId(), username, msg.getSender(), "DELIVERED", null);
@@ -102,10 +93,9 @@ public class MessageController {
     public void processPrivateReaction(@Payload ReactionDto dto, Principal principal) {
         String me = principal.getName();
         dto.setSender(me);
+        log.info("Reaction from {} to message {}: {}", me, dto.getMessageId(), dto.getEmoji());
         if (dto.getRecipient() != null) {
-            // ارسال به گیرنده
             messagingTemplate.convertAndSendToUser(dto.getRecipient(), "/queue/reactions", dto);
-            // ارسال به خود فرستنده
             messagingTemplate.convertAndSendToUser(me, "/queue/reactions", dto);
         }
     }
@@ -195,7 +185,9 @@ public class MessageController {
     public void processGroupMessageDelete(@Payload MessageDeleteDto deleteDto, Principal principal) {
         if (deleteDto.getGroupId() != null) {
             groupService.getGroupMembers(deleteDto.getGroupId()).forEach(member -> {
-                messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages/delete", deleteDto);
+                if (!member.getUsername().equals(principal.getName())) {
+                    messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages/delete", deleteDto);
+                }
             });
         }
     }
@@ -206,7 +198,9 @@ public class MessageController {
         dto.setSender(me);
         if (dto.getGroupId() != null) {
             groupService.getGroupMembers(dto.getGroupId()).forEach(member -> {
-                messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-reactions", dto);
+                if (!member.getUsername().equals(me)) {
+                    messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-reactions", dto);
+                }
             });
         }
     }
