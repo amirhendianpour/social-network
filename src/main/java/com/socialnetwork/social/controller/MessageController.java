@@ -165,9 +165,9 @@ public class MessageController {
     public void processMessageEdit(@Payload ChatMessage message, Principal principal) {
         String sender = principal.getName();
         message.setSender(sender);
-        // ارسال به مقصد اختصاصی ویرایش
-        messagingTemplate.convertAndSendToUser(message.getRecipient(), "/queue/messages/edit", message);
-        messagingTemplate.convertAndSendToUser(sender, "/queue/messages/edit", message);
+        // برگشت به مسیر اصلی برای پایداری، اما با فرستنده کامل
+        messagingTemplate.convertAndSendToUser(message.getRecipient(), "/queue/messages", message);
+        messagingTemplate.convertAndSendToUser(sender, "/queue/messages", message);
     }
 
     @MessageMapping("/group/edit")
@@ -175,7 +175,7 @@ public class MessageController {
         String sender = principal.getName();
         message.setSender(sender);
         groupService.getGroupMembers(message.getGroupId()).forEach(member -> {
-            messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages/edit", message);
+            messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages", message);
         });
     }
 
