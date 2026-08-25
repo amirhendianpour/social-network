@@ -197,6 +197,29 @@ public class MessageController {
         }
     }
 
+    @MessageMapping("/chat/presence")
+    public void processPresence(@Payload UserStatusDto statusDto, Principal principal) {
+        String username = principal.getName();
+        log.info("Manual presence event from {}: online={}", username, statusDto.isOnline());
+        
+        // بروزرسانی وضعیت در رجیستری (در صورت نیاز به لاجیک خاص)
+        if (!statusDto.isOnline()) {
+            sessionRegistry.removeSession(username);
+            Instant now = Instant.now();
+            userRepository.findByUsername(username).ifPresent(user -> {
+                user.setLastSeen(now);
+                userRepository.save(user);
+            });
+            statusDto.setLastSeen(now.toString());
+        } else {
+            // اگر آنلاین شد، مطمئن شویم در رجیستری هست (هرچند اتصال سوکت خودش اینکار را میکند)
+            // sessionRegistry.registerSession(username, ...); 
+        }
+
+        // پخش وضعیت برای همه
+        messagingTemplate.convertAndSend("/topic/user-status", statusDto);
+    }
+
     @MessageMapping("/group/delete")
     public void processGroupMessageDelete(@Payload MessageDeleteDto deleteDto, Principal principal) {
         if (deleteDto.getGroupId() != null) {
