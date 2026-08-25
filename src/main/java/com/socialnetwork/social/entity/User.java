@@ -1,6 +1,7 @@
 package com.socialnetwork.social.entity;
 
 import jakarta.persistence.*;
+import java.time.Instant;
 
 @Entity
 @Table(name = "users")
@@ -39,6 +40,8 @@ public class User {
     private String bio;
 
     private String profilePictureUrl;
+
+    private Instant lastSeen;
 
     public User() {}
 
@@ -80,6 +83,9 @@ public class User {
 
     public String getProfilePictureUrl() { return profilePictureUrl; }
     public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
+
+    public Instant getLastSeen() { return lastSeen; }
+    public void setLastSeen(Instant lastSeen) { this.lastSeen = lastSeen; }
 
     // نامی که در چت و لیست مخاطبین نمایش داده می‌شود
     public String getDisplayName() {

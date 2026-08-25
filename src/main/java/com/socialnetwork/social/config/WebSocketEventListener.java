@@ -2,6 +2,7 @@ package com.socialnetwork.social.config;
 
 import com.socialnetwork.social.dto.ChatMessage;
 import com.socialnetwork.social.dto.UserStatusDto;
+import com.socialnetwork.social.repository.UserRepository;
 import com.socialnetwork.social.service.MessageService;
 import com.socialnetwork.social.session.UserSessionRegistry;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class WebSocketEventListener {
 
     private final UserSessionRegistry sessionRegistry;
     private final SimpMessagingTemplate messagingTemplate;
+    private final UserRepository userRepository;
 
     @Autowired
     private MessageService messageService;
@@ -79,9 +81,17 @@ public class WebSocketEventListener {
 
         if (username != null) {
             sessionRegistry.removeSession(username);
+            
+            Instant now = Instant.now();
+            
+            // ذخیره در دیتابیس
+            userRepository.findByUsername(username).ifPresent(user -> {
+                user.setLastSeen(now);
+                userRepository.save(user);
+            });
 
             // اطلاع‌رسانی آفلاین شدن بلافاصله
-            UserStatusDto status = new UserStatusDto(username, false, Instant.now().toString());
+            UserStatusDto status = new UserStatusDto(username, false, now.toString());
             messagingTemplate.convertAndSend("/topic/user-status", status);
         }
     }

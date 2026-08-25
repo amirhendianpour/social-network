@@ -11,6 +11,10 @@ public class UserInfo {
     private String email;
     @Setter
     private String phoneNumber;
+    @Setter
+    private boolean online;
+    @Setter
+    private String lastSeen;
 
 
     public UserInfo(String username, String firstName, String lastName, String profilePictureUrl, String email, String phoneNumber) {
@@ -29,4 +33,7 @@ public class UserInfo {
 
     public String getEmail() {return email;}
     public String getPhoneNumber() {return phoneNumber;}
+
+    public boolean isOnline() { return online; }
+    public String getLastSeen() { return lastSeen; }
 }

@@ -4,6 +4,7 @@ import com.socialnetwork.social.dto.ProfileUpdateRequest;
 import com.socialnetwork.social.dto.UserProfileResponse;
 import com.socialnetwork.social.entity.User;
 import com.socialnetwork.social.repository.UserRepository;
+import com.socialnetwork.social.session.UserSessionRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -22,12 +24,15 @@ public class ProfileService {
     private static final String AVATAR_UPLOAD_DIR = "uploads/avatars/";
 
     private final UserRepository userRepository;
+    private final UserSessionRegistry sessionRegistry;
     private final String baseUrl;
 
     @Autowired
     public ProfileService(UserRepository userRepository,
+                          UserSessionRegistry sessionRegistry,
                           @Value("${app.upload-base-url:http://localhost:8080}") String baseUrl) {
         this.userRepository = userRepository;
+        this.sessionRegistry = sessionRegistry;
         this.baseUrl = baseUrl;
     }
 
@@ -114,9 +119,12 @@ public class ProfileService {
     }
 
     private UserProfileResponse toResponse(User user) {
-        return new UserProfileResponse(
+        UserProfileResponse resp = new UserProfileResponse(
                 user.getUsername(), user.getFirstName(), user.getLastName(),
                 user.getEmail(), user.getPhoneNumber(), user.getBio(), user.getProfilePictureUrl()
         );
+        resp.setOnline(sessionRegistry.isUserOnline(user.getUsername()));
+        resp.setLastSeen(user.getLastSeen() != null ? user.getLastSeen().toString() : null);
+        return resp;
     }
 }

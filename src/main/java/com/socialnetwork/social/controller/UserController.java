@@ -7,10 +7,12 @@ import com.socialnetwork.social.dto.UserInfo;
 import com.socialnetwork.social.entity.User;
 import com.socialnetwork.social.repository.UserRepository;
 import com.socialnetwork.social.service.ProfileService;
+import com.socialnetwork.social.session.UserSessionRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -21,11 +23,13 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final ProfileService profileService;
+    private final UserSessionRegistry sessionRegistry;
 
     @Autowired
-    public UserController(UserRepository userRepository, ProfileService profileService) {
+    public UserController(UserRepository userRepository, ProfileService profileService, UserSessionRegistry sessionRegistry) {
         this.userRepository = userRepository;
         this.profileService = profileService;
+        this.sessionRegistry = sessionRegistry;
     }
 
     @GetMapping("/lookup")
@@ -48,14 +52,19 @@ public class UserController {
     public ResponseEntity<List<UserInfo>> batchInfo(@RequestBody BatchInfoRequest request) {
         List<UserInfo> results = userRepository.findByUsernameIn(request.getUsernames())
                 .stream()
-                .map(u -> new UserInfo(
+                .map(u -> {
+                    UserInfo info = new UserInfo(
                         u.getUsername(),
                         u.getFirstName(),
                         u.getLastName(),
                         u.getProfilePictureUrl(),
                         u.getEmail(),
                         u.getPhoneNumber()
-                ))
+                    );
+                    info.setOnline(sessionRegistry.isUserOnline(u.getUsername()));
+                    info.setLastSeen(u.getLastSeen() != null ? u.getLastSeen().toString() : null);
+                    return info;
+                })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(results);
     }
