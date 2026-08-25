@@ -47,6 +47,7 @@ public class WebSocketEventListener {
             // اطلاع‌رسانی آنلاین شدن
             UserStatusDto status = new UserStatusDto(username, true, null);
             messagingTemplate.convertAndSend("/topic/user-status", status);
+            log.info("User {} connected, broadcasted ONLINE status", username);
         }
     }
 
@@ -93,6 +94,7 @@ public class WebSocketEventListener {
             // اطلاع‌رسانی آفلاین شدن بلافاصله
             UserStatusDto status = new UserStatusDto(username, false, now.toString());
             messagingTemplate.convertAndSend("/topic/user-status", status);
+            log.info("User {} disconnected, broadcasted OFFLINE status with lastSeen={}", username, now);
         }
     }
 }
