@@ -212,9 +212,6 @@ public class MessageController {
                 userRepository.save(user);
             });
             statusDto.setLastSeen(now.toString());
-        } else {
-            // اگر آنلاین شد، مطمئن شویم در رجیستری هست (هرچند اتصال سوکت خودش اینکار را میکند)
-            // sessionRegistry.registerSession(username, ...); 
         }
 
         // پخش وضعیت برای همه
