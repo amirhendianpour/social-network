@@ -49,6 +49,18 @@ public class ProfileService {
         if (request.getLastName() != null && !request.getLastName().trim().isEmpty()) {
             user.setLastName(request.getLastName().trim());
         }
+
+        // تغییر یوزرنیم (آیدی)
+        if (request.getUsername() != null && !request.getUsername().trim().isEmpty()) {
+            String newUsername = request.getUsername().trim().toLowerCase();
+            if (!newUsername.equals(user.getUsername())) {
+                if (userRepository.findByUsername(newUsername).isPresent()) {
+                    throw new IllegalArgumentException("این نام کاربری قبلاً انتخاب شده است.");
+                }
+                user.setUsername(newUsername);
+            }
+        }
+
         // بیو می‌تواند عمداً خالی فرستاده شود (یعنی کاربر می‌خواهد آن را پاک کند)
         if (request.getBio() != null) {
             String bio = request.getBio().trim();
