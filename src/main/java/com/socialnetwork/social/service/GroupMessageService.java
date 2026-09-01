@@ -45,6 +45,7 @@ public class GroupMessageService {
         );
         message.setReplyToId(chatMessage.getReplyToId());
         message.setMediaKey(chatMessage.getMediaKey());
+        message.setForwarded(chatMessage.isForwarded());
         return groupMessageRepository.save(message);
     }
 

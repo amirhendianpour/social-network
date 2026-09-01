@@ -33,6 +33,7 @@ public class MessageService {
         message.setFileUrl(chatMessage.getFileUrl());
         message.setReplyToId(chatMessage.getReplyToId());
         message.setMediaKey(chatMessage.getMediaKey());
+        message.setForwarded(chatMessage.isForwarded());
 
         messageRepository.save(message);
     }
