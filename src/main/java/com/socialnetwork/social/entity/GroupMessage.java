@@ -1,12 +1,18 @@
 package com.socialnetwork.social.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 
+@Setter
+@Getter
 @Entity
 @Table(name = "group_messages")
 public class GroupMessage {
 
+    // Getter ها و Setter ها
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -20,6 +26,7 @@ public class GroupMessage {
 
     private String replyToId;
     private String mediaKey;
+    private boolean isForwarded = false;
 
     private Instant timestamp;
 
@@ -33,28 +40,4 @@ public class GroupMessage {
         this.timestamp = Instant.now();
     }
 
-    // Getter ها و Setter ها
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getClientMessageId() { return clientMessageId; }
-    public void setClientMessageId(String clientMessageId) { this.clientMessageId = clientMessageId; }
-
-    public Long getGroupId() { return groupId; }
-    public void setGroupId(Long groupId) { this.groupId = groupId; }
-
-    public String getSender() { return sender; }
-    public void setSender(String sender) { this.sender = sender; }
-
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
-
-    public String getReplyToId() { return replyToId; }
-    public void setReplyToId(String replyToId) { this.replyToId = replyToId; }
-
-    public String getMediaKey() { return mediaKey; }
-    public void setMediaKey(String mediaKey) { this.mediaKey = mediaKey; }
-
-    public Instant getTimestamp() { return timestamp; }
-    public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
 }

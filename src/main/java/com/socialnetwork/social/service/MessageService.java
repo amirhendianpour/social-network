@@ -54,6 +54,7 @@ public class MessageService {
                     dto.setFileUrl(msg.getFileUrl());
                     dto.setReplyToId(msg.getReplyToId());
                     dto.setMediaKey(msg.getMediaKey());
+                    dto.setForwarded(msg.isForwarded());
                     dto.setTimestamp(msg.getTimestamp());
                     return dto;
                 })

@@ -1,8 +1,11 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Setter
+@Getter
 public class CreateGroupRequest {
     private String groupName;
 
-    public String getGroupName() { return groupName; }
-    public void setGroupName(String groupName) { this.groupName = groupName; }
 }

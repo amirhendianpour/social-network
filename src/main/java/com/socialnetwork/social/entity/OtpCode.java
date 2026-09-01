@@ -1,8 +1,13 @@
 package com.socialnetwork.social.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
+@Setter
+@Getter
 @Entity
 @Table(name = "otp_codes")
 public class OtpCode {
@@ -30,30 +35,4 @@ public class OtpCode {
 
     public OtpCode() {}
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getIdentifier() { return identifier; }
-    public void setIdentifier(String identifier) { this.identifier = identifier; }
-
-    public OtpChannel getChannel() { return channel; }
-    public void setChannel(OtpChannel channel) { this.channel = channel; }
-
-    public OtpPurpose getPurpose() { return purpose; }
-    public void setPurpose(OtpPurpose purpose) { this.purpose = purpose; }
-
-    public String getCodeHash() { return codeHash; }
-    public void setCodeHash(String codeHash) { this.codeHash = codeHash; }
-
-    public LocalDateTime getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public boolean isUsed() { return used; }
-    public void setUsed(boolean used) { this.used = used; }
-
-    public int getAttempts() { return attempts; }
-    public void setAttempts(int attempts) { this.attempts = attempts; }
 }

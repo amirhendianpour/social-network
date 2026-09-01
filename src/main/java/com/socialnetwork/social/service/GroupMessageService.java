@@ -139,6 +139,7 @@ public class GroupMessageService {
                 dto.setContent(msg.getContent());
                 dto.setReplyToId(msg.getReplyToId());
                 dto.setMediaKey(msg.getMediaKey());
+                dto.setForwarded(msg.isForwarded());
                 dto.setTimestamp(msg.getTimestamp());
                 offlineMessages.add(dto);
 

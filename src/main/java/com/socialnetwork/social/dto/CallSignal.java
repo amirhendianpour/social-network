@@ -1,5 +1,10 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Setter
+@Getter
 public class CallSignal {
     private String type;      // OFFER, ANSWER, ICE_CANDIDATE, END, REJECT, BUSY
     private String from;
@@ -9,24 +14,4 @@ public class CallSignal {
     private String callId;
     private String callType; // "AUDIO" یا "VIDEO"
 
-    public String getCallType() { return callType; }
-    public void setCallType(String callType) { this.callType = callType; }
-
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
-
-    public String getFrom() { return from; }
-    public void setFrom(String from) { this.from = from; }
-
-    public String getTo() { return to; }
-    public void setTo(String to) { this.to = to; }
-
-    public String getSdp() { return sdp; }
-    public void setSdp(String sdp) { this.sdp = sdp; }
-
-    public String getCandidate() { return candidate; }
-    public void setCandidate(String candidate) { this.candidate = candidate; }
-
-    public String getCallId() { return callId; }
-    public void setCallId(String callId) { this.callId = callId; }
 }

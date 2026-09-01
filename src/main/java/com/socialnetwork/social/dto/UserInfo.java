@@ -1,7 +1,9 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
 import lombok.Setter;
 
+@Getter
 public class UserInfo {
     private String username;
     private String firstName;
@@ -26,14 +28,4 @@ public class UserInfo {
         this.phoneNumber = phoneNumber;
     }
 
-    public String getUsername() { return username; }
-    public String getFirstName() { return firstName; }
-    public String getLastName() { return lastName; }
-    public String getProfilePictureUrl() { return profilePictureUrl; }
-
-    public String getEmail() {return email;}
-    public String getPhoneNumber() {return phoneNumber;}
-
-    public boolean isOnline() { return online; }
-    public String getLastSeen() { return lastSeen; }
 }

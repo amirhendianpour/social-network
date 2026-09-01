@@ -1,5 +1,9 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
 public class UserProfileResponse {
     private String username;
     private String firstName;
@@ -8,7 +12,9 @@ public class UserProfileResponse {
     private String phoneNumber;
     private String bio;
     private String profilePictureUrl;
+    @Setter
     private boolean online;
+    @Setter
     private String lastSeen;
 
     public UserProfileResponse(String username, String firstName, String lastName,
@@ -22,17 +28,4 @@ public class UserProfileResponse {
         this.profilePictureUrl = profilePictureUrl;
     }
 
-    public String getUsername() { return username; }
-    public String getFirstName() { return firstName; }
-    public String getLastName() { return lastName; }
-    public String getEmail() { return email; }
-    public String getPhoneNumber() { return phoneNumber; }
-    public String getBio() { return bio; }
-    public String getProfilePictureUrl() { return profilePictureUrl; }
-
-    public boolean isOnline() { return online; }
-    public void setOnline(boolean online) { this.online = online; }
-
-    public String getLastSeen() { return lastSeen; }
-    public void setLastSeen(String lastSeen) { this.lastSeen = lastSeen; }
 }

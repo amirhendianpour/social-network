@@ -1,8 +1,13 @@
 package com.socialnetwork.social.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
+@Setter
+@Getter
 @Entity
 @Table(name = "group_deliveries")
 public class GroupDelivery {
@@ -31,18 +36,4 @@ public class GroupDelivery {
         this.createdAt = LocalDateTime.now();
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public Long getGroupMessageId() { return groupMessageId; }
-    public void setGroupMessageId(Long groupMessageId) { this.groupMessageId = groupMessageId; }
-
-    public String getRecipientUsername() { return recipientUsername; }
-    public void setRecipientUsername(String recipientUsername) { this.recipientUsername = recipientUsername; }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

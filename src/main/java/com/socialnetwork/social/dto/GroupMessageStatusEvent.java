@@ -1,6 +1,11 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
 // این ایونت برای فرستنده‌ی پیام ارسال می‌شود تا تیک پیامش را آپدیت کند
+@Setter
+@Getter
 public class GroupMessageStatusEvent {
     private String messageId; // clientMessageId (UUID) — همان id ای که فرانت استفاده می‌کند
     private Long groupId;
@@ -14,10 +19,4 @@ public class GroupMessageStatusEvent {
         this.status = status;
     }
 
-    public String getMessageId() { return messageId; }
-    public void setMessageId(String messageId) { this.messageId = messageId; }
-    public Long getGroupId() { return groupId; }
-    public void setGroupId(Long groupId) { this.groupId = groupId; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
 }

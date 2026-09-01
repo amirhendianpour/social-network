@@ -1,5 +1,10 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Setter
+@Getter
 public class GroupUpdateEvent {
     private String type; // "ADDED", "DELETED", "IMAGE_UPDATED", "NAME_UPDATED", "ROLE_UPDATED"
     private Long groupId;
@@ -19,16 +24,4 @@ public class GroupUpdateEvent {
         this.targetUsername = targetUsername;
     }
 
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
-    public Long getGroupId() { return groupId; }
-    public void setGroupId(Long groupId) { this.groupId = groupId; }
-    public String getGroupName() { return groupName; }
-    public void setGroupName(String groupName) { this.groupName = groupName; }
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
-    public String getImageUrl() { return imageUrl; }
-    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
-    public String getTargetUsername() { return targetUsername; }
-    public void setTargetUsername(String targetUsername) { this.targetUsername = targetUsername; }
 }

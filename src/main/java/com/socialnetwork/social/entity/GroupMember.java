@@ -1,12 +1,18 @@
 package com.socialnetwork.social.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
+@Setter
+@Getter
 @Entity
 @Table(name = "group_members")
 public class GroupMember {
 
+    // Getter ها و Setter ها
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -31,19 +37,4 @@ public class GroupMember {
         this.joinedAt = LocalDateTime.now();
     }
 
-    // Getter ها و Setter ها
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public Long getGroupId() { return groupId; }
-    public void setGroupId(Long groupId) { this.groupId = groupId; }
-
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
-
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
-
-    public LocalDateTime getJoinedAt() { return joinedAt; }
-    public void setJoinedAt(LocalDateTime joinedAt) { this.joinedAt = joinedAt; }
 }

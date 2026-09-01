@@ -1,5 +1,10 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Setter
+@Getter
 public class TypingEvent {
 
     private String sender;
@@ -9,27 +14,4 @@ public class TypingEvent {
     public TypingEvent() {
     }
 
-    public String getSender() {
-        return sender;
-    }
-
-    public void setSender(String sender) {
-        this.sender = sender;
-    }
-
-    public String getRecipient() {
-        return recipient;
-    }
-
-    public void setRecipient(String recipient) {
-        this.recipient = recipient;
-    }
-
-    public boolean isTyping() {
-        return typing;
-    }
-
-    public void setTyping(boolean typing) {
-        this.typing = typing;
-    }
 }

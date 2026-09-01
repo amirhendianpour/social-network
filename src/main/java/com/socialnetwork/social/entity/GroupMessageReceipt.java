@@ -1,8 +1,13 @@
 package com.socialnetwork.social.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 
+@Setter
+@Getter
 @Entity
 @Table(name = "group_message_receipts",
         uniqueConstraints = @UniqueConstraint(columnNames = {"groupMessageId", "username"}))
@@ -26,18 +31,4 @@ public class GroupMessageReceipt {
         this.updatedAt = Instant.now();
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public Long getGroupMessageId() { return groupMessageId; }
-    public void setGroupMessageId(Long groupMessageId) { this.groupMessageId = groupMessageId; }
-
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

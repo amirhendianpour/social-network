@@ -1,11 +1,12 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Setter
+@Getter
 public class LoginPasswordRequest {
     private String identifier; // ایمیل یا شماره موبایل
     private String password;
 
-    public String getIdentifier() { return identifier; }
-    public void setIdentifier(String identifier) { this.identifier = identifier; }
-    public String getPassword() { return password; }
-    public void setPassword(String password) { this.password = password; }
 }

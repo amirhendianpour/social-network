@@ -1,5 +1,8 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
+
+@Getter
 public class GroupMemberInfo {
     private String username;
     private String firstName;
@@ -15,9 +18,4 @@ public class GroupMemberInfo {
         this.role = role;
     }
 
-    public String getUsername() { return username; }
-    public String getFirstName() { return firstName; }
-    public String getLastName() { return lastName; }
-    public String getProfilePictureUrl() { return profilePictureUrl; }
-    public String getRole() { return role; }
 }

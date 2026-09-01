@@ -1,5 +1,8 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
+
+@Getter
 public class AuthResponse {
     private String token;
     private String username;
@@ -21,12 +24,4 @@ public class AuthResponse {
         this.profilePictureUrl = profilePictureUrl;
     }
 
-    public String getToken() { return token; }
-    public String getUsername() { return username; }
-    public String getFirstName() { return firstName; }
-    public String getLastName() { return lastName; }
-    public String getEmail() { return email; }
-    public String getPhoneNumber() { return phoneNumber; }
-    public String getBio() { return bio; }
-    public String getProfilePictureUrl() { return profilePictureUrl; }
 }

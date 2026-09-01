@@ -1,5 +1,8 @@
 package com.socialnetwork.social.dto;
 
+import lombok.Getter;
+
+@Getter
 public class ContactResponse {
     private String username;
     private String phoneNumber;
@@ -15,9 +18,4 @@ public class ContactResponse {
         this.lastName = lastName;
     }
 
-    public String getUsername() { return username; }
-    public String getPhoneNumber() { return phoneNumber; }
-    public String getPublicKey() { return publicKey; }
-    public String getFirstName() { return firstName; }
-    public String getLastName() { return lastName; }
 }

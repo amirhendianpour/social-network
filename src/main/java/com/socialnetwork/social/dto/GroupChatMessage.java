@@ -1,38 +1,24 @@
 package com.socialnetwork.social.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 
+@Setter
+@Getter
 public class GroupChatMessage {
+    // Getter ها و Setter ها
     private String id; // شناسه کلاینت (UUID)
     private Long groupId;
     private String sender;
     private String content;
     private String replyToId;
     private String mediaKey;
+    private boolean isForwarded = false;
     private java.time.Instant timestamp;
 
-    public java.time.Instant getTimestamp() { return timestamp; }
-
-    public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
     public GroupChatMessage() {}
 
-    // Getter ها و Setter ها
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-
-    public Long getGroupId() { return groupId; }
-    public void setGroupId(Long groupId) { this.groupId = groupId; }
-
-    public String getSender() { return sender; }
-    public void setSender(String sender) { this.sender = sender; }
-
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
-
-    public String getReplyToId() { return replyToId; }
-    public void setReplyToId(String replyToId) { this.replyToId = replyToId; }
-
-    public String getMediaKey() { return mediaKey; }
-    public void setMediaKey(String mediaKey) { this.mediaKey = mediaKey; }
 }
