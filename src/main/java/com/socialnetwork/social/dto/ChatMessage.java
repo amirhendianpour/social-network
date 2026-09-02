@@ -14,7 +14,7 @@ public class ChatMessage {
     private String sender;
     private String recipient;
     private String content;
-    private String messageType = "TEXT"; // می‌تواند "TEXT" یا "IMAGE" یا "FILE" باشد
+    private String messageType = "TEXT"; // می‌تواند "TEXT", "IMAGE", "FILE", "VOICE", "CONTACT" باشد
     private String fileUrl;
     private String replyToId;
     private String mediaKey;

@@ -14,6 +14,8 @@ public class GroupChatMessage {
     private Long groupId;
     private String sender;
     private String content;
+    private String messageType = "TEXT";
+    private String fileUrl;
     private String replyToId;
     private String mediaKey;
     private boolean isForwarded = false;

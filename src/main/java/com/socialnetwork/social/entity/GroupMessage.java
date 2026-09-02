@@ -20,6 +20,10 @@ public class GroupMessage {
     private String clientMessageId;
     private Long groupId;
     private String sender;
+    private String messageType;
+
+    @Column(columnDefinition = "TEXT")
+    private String fileUrl;
 
     @Column(columnDefinition = "TEXT")
     private String content;
@@ -33,11 +37,13 @@ public class GroupMessage {
 
     public GroupMessage() {}
 
-    public GroupMessage(String clientMessageId, Long groupId, String sender, String content) {
+    public GroupMessage(String clientMessageId, Long groupId, String sender, String content, String messageType, String fileUrl) {
         this.clientMessageId = clientMessageId;
         this.groupId = groupId;
         this.sender = sender;
         this.content = content;
+        this.messageType = messageType;
+        this.fileUrl = fileUrl;
         this.timestamp = Instant.now();
     }
 
