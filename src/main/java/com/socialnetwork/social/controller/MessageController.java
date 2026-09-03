@@ -45,20 +45,24 @@ public class MessageController {
 
         log.info("Processing message from {} to {}", sender, recipient);
 
-        // ارسال به گیرنده
-        if (sessionRegistry.isUserOnline(recipient)) {
-            log.info("Sending message to online user: {}", recipient);
-            messagingTemplate.convertAndSendToUser(recipient, "/queue/messages", chatMessage);
-        } else {
-            log.info("User {} is offline. Saving message and sending Push.", recipient);
-            messageService.saveMessage(chatMessage);
-            String senderDisplayName = userRepository.findByUsername(sender)
-                    .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
-                    .orElse(sender);
-            fcmService.sendPrivateMessagePush(recipient, senderDisplayName, chatMessage.getContent());
+        boolean isMessageToSelf = sender.equals(recipient);
+
+        // ارسال به گیرنده (اگر خودش نباشد، چون در انتهای متد یک‌بار برای خودش ارسال می‌شود)
+        if (!isMessageToSelf) {
+            if (sessionRegistry.isUserOnline(recipient)) {
+                log.info("Sending message to online user: {}", recipient);
+                messagingTemplate.convertAndSendToUser(recipient, "/queue/messages", chatMessage);
+            } else {
+                log.info("User {} is offline. Saving message and sending Push.", recipient);
+                messageService.saveMessage(chatMessage);
+                String senderDisplayName = userRepository.findByUsername(sender)
+                        .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
+                        .orElse(sender);
+                fcmService.sendPrivateMessagePush(recipient, senderDisplayName, chatMessage.getContent());
+            }
         }
 
-        // ارسال به خود فرستنده (برای همگام‌سازی سایر دستگاه‌ها)
+        // ارسال به خود فرستنده (برای همگام‌سازی سایر دستگاه‌ها و دریافت نهایی پیام در Saved Messages)
         messagingTemplate.convertAndSendToUser(sender, "/queue/messages", chatMessage);
     }
 
