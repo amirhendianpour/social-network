@@ -2,6 +2,7 @@ package com.socialnetwork.social.service;
 
 import com.socialnetwork.social.dto.ProfileUpdateRequest;
 import com.socialnetwork.social.dto.UserProfileResponse;
+import com.socialnetwork.social.entity.User;
 import com.socialnetwork.social.repository.*;
 import com.socialnetwork.social.session.UserSessionRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,7 +68,6 @@ public class ProfileService {
             user.setLastName(request.getLastName().trim());
         }
 
-        // تغییر یوزرنیم (آیدی)
         if (request.getUsername() != null && !request.getUsername().trim().isEmpty()) {
             String newUsername = request.getUsername().trim().toLowerCase();
             if (!newUsername.equals(user.getUsername())) {
@@ -78,18 +78,15 @@ public class ProfileService {
             }
         }
 
-        // بیو می‌تواند عمداً خالی فرستاده شود (یعنی کاربر می‌خواهد آن را پاک کند)
         if (request.getBio() != null) {
             String bio = request.getBio().trim();
             user.setBio(bio.isEmpty() ? null : bio);
         }
 
-        // اضافه کردن ایمیل اگر قبلاً نبوده
         if (user.getEmail() == null && request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
             user.setEmail(request.getEmail().trim());
         }
 
-        // اضافه کردن شماره موبایل اگر قبلاً نبوده
         if (user.getPhoneNumber() == null && request.getPhoneNumber() != null && !request.getPhoneNumber().trim().isEmpty()) {
             user.setPhoneNumber(request.getPhoneNumber().trim());
         }
@@ -107,7 +104,10 @@ public class ProfileService {
 
         try {
             File dir = new File(AVATAR_UPLOAD_DIR);
-            if (!dir.exists()) dir.mkdirs();
+            if (!dir.exists()) {
+                boolean created = dir.mkdirs();
+                if (!created) throw new IOException("Could not create directory: " + AVATAR_UPLOAD_DIR);
+            }
 
             String originalFilename = file.getOriginalFilename();
             String extension = (originalFilename != null && originalFilename.contains("."))
@@ -135,19 +135,20 @@ public class ProfileService {
     public void deleteAccount(String username) {
         User user = findUser(username);
 
-        // ۱. پیدا کردن و حذف فیزیکی فایل‌های پیام‌های خصوصی
+        // ۱. حذف فیزیکی فایل‌های پیام‌های خصوصی
         messageRepository.findAllBySenderOrRecipient(username, username).forEach(msg -> {
-            deleteOldAvatarIfLocal(msg.getFileUrl()); // از همین متد برای حذف هر فایلی می‌توان استفاده کرد
+            deleteOldAvatarIfLocal(msg.getFileUrl());
         });
         messageRepository.deleteBySenderOrRecipient(username, username);
 
         // ۲. حذف از گروه‌ها
         groupMemberRepository.deleteByUsername(username);
 
-        // ۳. پیدا کردن و حذف فیزیکی فایل‌های پیام‌های گروهی ارسالی
-        // (در اینجا متد کمکی برای پیدا کردن پیام‌های یک فرستنده در ریپازیتوری نیاز داریم یا به روش زیر:)
-        // ما فعلاً فقط پیام‌های دیتابیسی را پاک می‌کنیم، اما بهتر است فایل‌ها را هم پاک کنیم:
-        // groupMessageRepository.deleteBySender(username); // این را با منطق حذف فایل جایگزین می‌کنیم
+        // ۳. حذف فیزیکی فایل‌های پیام‌های گروهی ارسالی
+        groupMessageRepository.findAllBySender(username).forEach(msg -> {
+            deleteOldAvatarIfLocal(msg.getFileUrl());
+        });
+        groupMessageRepository.deleteBySender(username);
 
         // ۴. حذف رکورد‌های بلاک (بلاک‌کننده یا بلاک‌شونده)
         blockRepository.deleteByBlockerOrBlocked(user, user);
@@ -172,7 +173,6 @@ public class ProfileService {
     private void deleteOldAvatarIfLocal(String oldUrl) {
         if (oldUrl == null) return;
         
-        // تشخیص مسیر فایل (آواتار یا آپلودهای معمولی)
         String relativePath = null;
         if (oldUrl.contains("/uploads/avatars/")) {
             relativePath = "avatars/" + oldUrl.substring(oldUrl.lastIndexOf("/") + 1);
