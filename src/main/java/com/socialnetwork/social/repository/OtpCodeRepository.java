@@ -13,4 +13,5 @@ public interface OtpCodeRepository extends JpaRepository<OtpCode, Long> {
 
     // برای محدود کردن ارسال مکرر: آخرین کد ارسالی برای این شناسه بدون توجه به وضعیت استفاده
     Optional<OtpCode> findFirstByIdentifierOrderByCreatedAtDesc(String identifier);
+    void deleteByIdentifier(String identifier);
 }

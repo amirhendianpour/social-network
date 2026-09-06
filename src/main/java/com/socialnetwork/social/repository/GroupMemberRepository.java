@@ -13,4 +13,5 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     List<GroupMember> findByGroupId(Long groupId);
     List<GroupMember> findByUsername(String username);
     Optional<GroupMember> findByGroupIdAndUsername(Long groupId, String username);
+    void deleteByUsername(String username);
 }

@@ -10,4 +10,6 @@ import java.util.List;
 public interface MessageRepository extends JpaRepository<Message, Long> {
     // پیدا کردن تمام پیام‌های ارسال شده برای یک کاربر خاص
     List<Message> findByRecipient(String recipient);
+    void deleteBySenderOrRecipient(String sender, String recipient);
+    List<Message> findAllBySenderOrRecipient(String sender, String recipient);
 }

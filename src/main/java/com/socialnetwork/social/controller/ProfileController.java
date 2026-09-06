@@ -51,4 +51,14 @@ public class ProfileController {
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
+
+    @DeleteMapping
+    public ResponseEntity<?> deleteAccount(Principal principal) {
+        try {
+            profileService.deleteAccount(principal.getName());
+            return ResponseEntity.ok(Map.of("message", "حساب کاربری با موفقیت حذف شد."));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

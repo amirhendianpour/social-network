@@ -8,4 +8,5 @@ import java.util.List;
 public interface GroupMessageRepository extends JpaRepository<GroupMessage, Long> {
     List<GroupMessage> findByGroupIdOrderByTimestampAsc(Long groupId);
     List<GroupMessage> findByClientMessageIdIn(List<String> clientMessageIds);
+    void deleteBySender(String sender);
 }

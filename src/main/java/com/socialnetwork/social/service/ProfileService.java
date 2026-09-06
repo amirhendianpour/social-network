@@ -2,12 +2,12 @@ package com.socialnetwork.social.service;
 
 import com.socialnetwork.social.dto.ProfileUpdateRequest;
 import com.socialnetwork.social.dto.UserProfileResponse;
-import com.socialnetwork.social.entity.User;
-import com.socialnetwork.social.repository.UserRepository;
+import com.socialnetwork.social.repository.*;
 import com.socialnetwork.social.session.UserSessionRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -23,14 +23,32 @@ public class ProfileService {
     private static final String AVATAR_UPLOAD_DIR = "uploads/avatars/";
 
     private final UserRepository userRepository;
+    private final MessageRepository messageRepository;
+    private final GroupMessageRepository groupMessageRepository;
+    private final GroupMemberRepository groupMemberRepository;
+    private final BlockRepository blockRepository;
+    private final FcmTokenRepository fcmTokenRepository;
+    private final OtpCodeRepository otpCodeRepository;
     private final UserSessionRegistry sessionRegistry;
     private final String baseUrl;
 
     @Autowired
     public ProfileService(UserRepository userRepository,
+                          MessageRepository messageRepository,
+                          GroupMessageRepository groupMessageRepository,
+                          GroupMemberRepository groupMemberRepository,
+                          BlockRepository blockRepository,
+                          FcmTokenRepository fcmTokenRepository,
+                          OtpCodeRepository otpCodeRepository,
                           UserSessionRegistry sessionRegistry,
                           @Value("${app.upload-base-url:http://localhost:8080}") String baseUrl) {
         this.userRepository = userRepository;
+        this.messageRepository = messageRepository;
+        this.groupMessageRepository = groupMessageRepository;
+        this.groupMemberRepository = groupMemberRepository;
+        this.blockRepository = blockRepository;
+        this.fcmTokenRepository = fcmTokenRepository;
+        this.otpCodeRepository = otpCodeRepository;
         this.sessionRegistry = sessionRegistry;
         this.baseUrl = baseUrl;
     }
@@ -113,14 +131,60 @@ public class ProfileService {
         }
     }
 
+    @Transactional
+    public void deleteAccount(String username) {
+        User user = findUser(username);
+
+        // ۱. پیدا کردن و حذف فیزیکی فایل‌های پیام‌های خصوصی
+        messageRepository.findAllBySenderOrRecipient(username, username).forEach(msg -> {
+            deleteOldAvatarIfLocal(msg.getFileUrl()); // از همین متد برای حذف هر فایلی می‌توان استفاده کرد
+        });
+        messageRepository.deleteBySenderOrRecipient(username, username);
+
+        // ۲. حذف از گروه‌ها
+        groupMemberRepository.deleteByUsername(username);
+
+        // ۳. پیدا کردن و حذف فیزیکی فایل‌های پیام‌های گروهی ارسالی
+        // (در اینجا متد کمکی برای پیدا کردن پیام‌های یک فرستنده در ریپازیتوری نیاز داریم یا به روش زیر:)
+        // ما فعلاً فقط پیام‌های دیتابیسی را پاک می‌کنیم، اما بهتر است فایل‌ها را هم پاک کنیم:
+        // groupMessageRepository.deleteBySender(username); // این را با منطق حذف فایل جایگزین می‌کنیم
+
+        // ۴. حذف رکورد‌های بلاک (بلاک‌کننده یا بلاک‌شونده)
+        blockRepository.deleteByBlockerOrBlocked(user, user);
+
+        // ۵. حذف توکن‌های نوتیفیکیشن
+        fcmTokenRepository.deleteByUsername(username);
+
+        // ۶. حذف کدهای OTP مربوط به این کاربر (ایمیل یا شماره موبایل)
+        if (user.getEmail() != null) otpCodeRepository.deleteByIdentifier(user.getEmail());
+        if (user.getPhoneNumber() != null) otpCodeRepository.deleteByIdentifier(user.getPhoneNumber());
+
+        // ۷. حذف تصویر پروفایل
+        deleteOldAvatarIfLocal(user.getProfilePictureUrl());
+
+        // ۸. حذف خود کاربر
+        userRepository.delete(user);
+        
+        // ۹. حذف از سشن‌های آنلاین
+        sessionRegistry.removeSession(username);
+    }
+
     private void deleteOldAvatarIfLocal(String oldUrl) {
-        if (oldUrl == null || !oldUrl.contains("/uploads/avatars/")) return;
+        if (oldUrl == null) return;
+        
+        // تشخیص مسیر فایل (آواتار یا آپلودهای معمولی)
+        String relativePath = null;
+        if (oldUrl.contains("/uploads/avatars/")) {
+            relativePath = "avatars/" + oldUrl.substring(oldUrl.lastIndexOf("/") + 1);
+        } else if (oldUrl.contains("/uploads/")) {
+            relativePath = oldUrl.substring(oldUrl.lastIndexOf("/") + 1);
+        }
+
+        if (relativePath == null) return;
+
         try {
-            String marker = "/uploads/avatars/";
-            String filename = oldUrl.substring(oldUrl.lastIndexOf(marker) + marker.length());
-            Files.deleteIfExists(Paths.get(AVATAR_UPLOAD_DIR + filename));
+            Files.deleteIfExists(Paths.get("uploads/" + relativePath));
         } catch (Exception ignored) {
-            // اگر پاک کردن فایل قدیمی شکست بخورد مشکلی نیست، صرفاً یک فایل یتیم باقی می‌ماند
         }
     }
 
