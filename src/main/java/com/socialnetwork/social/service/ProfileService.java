@@ -21,8 +21,6 @@ import java.util.UUID;
 @Service
 public class ProfileService {
 
-    private static final String AVATAR_UPLOAD_DIR = "uploads/avatars/";
-
     private final UserRepository userRepository;
     private final MessageRepository messageRepository;
     private final GroupMessageRepository groupMessageRepository;
@@ -32,6 +30,7 @@ public class ProfileService {
     private final OtpCodeRepository otpCodeRepository;
     private final UserSessionRegistry sessionRegistry;
     private final String baseUrl;
+    private final String uploadDir;
 
     @Autowired
     public ProfileService(UserRepository userRepository,
@@ -42,7 +41,8 @@ public class ProfileService {
                           FcmTokenRepository fcmTokenRepository,
                           OtpCodeRepository otpCodeRepository,
                           UserSessionRegistry sessionRegistry,
-                          @Value("${app.upload-base-url:http://localhost:8080}") String baseUrl) {
+                          @Value("${app.upload-base-url:http://localhost:8080}") String baseUrl,
+                          @Value("${app.upload-dir:uploads/}") String uploadDir) {
         this.userRepository = userRepository;
         this.messageRepository = messageRepository;
         this.groupMessageRepository = groupMessageRepository;
@@ -52,6 +52,11 @@ public class ProfileService {
         this.otpCodeRepository = otpCodeRepository;
         this.sessionRegistry = sessionRegistry;
         this.baseUrl = baseUrl;
+        this.uploadDir = uploadDir.endsWith("/") ? uploadDir : uploadDir + "/";
+    }
+
+    private String getAvatarDir() {
+        return uploadDir + "avatars/";
     }
 
     public UserProfileResponse getProfile(String username) {
@@ -101,12 +106,13 @@ public class ProfileService {
         }
 
         User user = findUser(username);
+        String oldAvatarUrl = user.getProfilePictureUrl();
 
         try {
-            File dir = new File(AVATAR_UPLOAD_DIR);
+            File dir = new File(getAvatarDir());
             if (!dir.exists()) {
                 boolean created = dir.mkdirs();
-                if (!created) throw new IOException("Could not create directory: " + AVATAR_UPLOAD_DIR);
+                if (!created) throw new IOException("Could not create directory: " + getAvatarDir());
             }
 
             String originalFilename = file.getOriginalFilename();
@@ -115,14 +121,17 @@ public class ProfileService {
                     : ".jpg";
             String newFilename = UUID.randomUUID() + extension;
 
-            Path path = Paths.get(AVATAR_UPLOAD_DIR + newFilename);
+            Path path = Paths.get(getAvatarDir() + newFilename);
             Files.write(path, file.getBytes());
-
-            deleteOldAvatarIfLocal(user.getProfilePictureUrl());
 
             String fileUrl = baseUrl + "/uploads/avatars/" + newFilename;
             user.setProfilePictureUrl(fileUrl);
             userRepository.save(user);
+
+            // حذف عکس قبلی فقط پس از ذخیره موفق عکس جدید
+            if (oldAvatarUrl != null) {
+                deleteOldAvatarIfLocal(oldAvatarUrl);
+            }
 
             return toResponse(user);
 
@@ -170,21 +179,26 @@ public class ProfileService {
         sessionRegistry.removeSession(username);
     }
 
-    private void deleteOldAvatarIfLocal(String oldUrl) {
-        if (oldUrl == null) return;
+    private void deleteOldAvatarIfLocal(String url) {
+        if (url == null) return;
         
-        String relativePath = null;
-        if (oldUrl.contains("/uploads/avatars/")) {
-            relativePath = "avatars/" + oldUrl.substring(oldUrl.lastIndexOf("/") + 1);
-        } else if (oldUrl.contains("/uploads/")) {
-            relativePath = oldUrl.substring(oldUrl.lastIndexOf("/") + 1);
-        }
-
-        if (relativePath == null) return;
-
         try {
-            Files.deleteIfExists(Paths.get("uploads/" + relativePath));
+            String fileName = null;
+            String subDir = "";
+
+            if (url.contains("/uploads/avatars/")) {
+                fileName = url.substring(url.lastIndexOf("/") + 1);
+                subDir = "avatars/";
+            } else if (url.contains("/uploads/")) {
+                fileName = url.substring(url.lastIndexOf("/") + 1);
+            }
+
+            if (fileName != null && !fileName.isEmpty()) {
+                Path path = Paths.get(uploadDir + subDir + fileName);
+                Files.deleteIfExists(path);
+            }
         } catch (Exception ignored) {
+            // خطاهای حذف فایل نادیده گرفته می‌شوند تا روند اصلی مختل نشود
         }
     }
 
