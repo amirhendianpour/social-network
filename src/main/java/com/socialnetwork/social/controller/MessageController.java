@@ -5,10 +5,7 @@ import com.socialnetwork.social.entity.GroupMember;
 import com.socialnetwork.social.entity.GroupMessage;
 import com.socialnetwork.social.repository.GroupMessageRepository;
 import com.socialnetwork.social.repository.UserRepository;
-import com.socialnetwork.social.service.FcmService;
-import com.socialnetwork.social.service.GroupMessageService;
-import com.socialnetwork.social.service.GroupService;
-import com.socialnetwork.social.service.MessageService;
+import com.socialnetwork.social.service.*;
 import com.socialnetwork.social.session.UserSessionRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +32,7 @@ public class MessageController {
     private final GroupMessageService groupMessageService;
     private final GroupMessageRepository groupMessageRepository;
     private final UserSessionRegistry sessionRegistry;
+    private final BlockService blockService;
 
     @MessageMapping("/chat")
     public void processMessage(@Payload ChatMessage chatMessage, Principal principal) {
@@ -46,6 +44,13 @@ public class MessageController {
         log.info("Processing message from {} to {}", sender, recipient);
 
         boolean isMessageToSelf = sender.equals(recipient);
+
+        // چک کردن بلاک بودن
+        if (!isMessageToSelf && blockService.isBlocked(recipient, sender)) {
+            log.warn("User {} is blocked by {}. Message dropped.", sender, recipient);
+            // به فرستنده خبر می‌دهیم که پیام ارسال نشد (اختیاری - معمولاً در اپ‌های چت چیزی نمی‌گویند تا معلوم نشود بلاک شده)
+            return;
+        }
 
         // ارسال به گیرنده (اگر خودش نباشد، چون در انتهای متد یک‌بار برای خودش ارسال می‌شود)
         if (!isMessageToSelf) {
@@ -72,24 +77,33 @@ public class MessageController {
         List<ChatMessage> offlineMessages = messageService.getUnreadMessages(username);
         log.info("Sending {} offline messages to user: {}", offlineMessages.size(), username);
         for (ChatMessage msg : offlineMessages) {
-            messagingTemplate.convertAndSendToUser(username, "/queue/messages", msg);
-            MessageReceipt receipt = new MessageReceipt(msg.getId(), username, msg.getSender(), "DELIVERED", null);
-            messagingTemplate.convertAndSendToUser(msg.getSender(), "/queue/receipts", receipt);
+            // در اینجا هم بهتر است چک کنیم مبادا کسی را بلاک کرده باشد و پیام‌های زمان آفلاینی او هنوز مانده باشد
+            if (!blockService.isBlocked(username, msg.getSender())) {
+                messagingTemplate.convertAndSendToUser(username, "/queue/messages", msg);
+                MessageReceipt receipt = new MessageReceipt(msg.getId(), username, msg.getSender(), "DELIVERED", null);
+                messagingTemplate.convertAndSendToUser(msg.getSender(), "/queue/receipts", receipt);
+            }
         }
         messageService.markAsRead(username);
     }
 
     @MessageMapping("/chat/receipt")
     public void processReceipt(@Payload MessageReceipt receipt, Principal principal) {
-        receipt.setSender(principal.getName());
+        String me = principal.getName();
+        receipt.setSender(me);
+        // اگر گیرنده رسید، فرستنده را بلاک کرده باشد، رسید رد شود
+        if (receipt.getRecipient() != null && blockService.isBlocked(receipt.getRecipient(), me)) {
+            return;
+        }
         messageService.relayReceipt(receipt);
     }
 
     @MessageMapping("/chat/typing")
     public void processTypingEvent(@Payload TypingEvent typingEvent, Principal principal) {
-        typingEvent.setSender(principal.getName());
+        String me = principal.getName();
+        typingEvent.setSender(me);
         String recipient = typingEvent.getRecipient();
-        if (sessionRegistry.isUserOnline(recipient)) {
+        if (!blockService.isBlocked(recipient, me) && sessionRegistry.isUserOnline(recipient)) {
             messagingTemplate.convertAndSendToUser(recipient, "/queue/typing", typingEvent);
         }
     }

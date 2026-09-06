@@ -6,12 +6,14 @@ import com.socialnetwork.social.dto.ContactSyncRequest;
 import com.socialnetwork.social.dto.UserInfo;
 import com.socialnetwork.social.entity.User;
 import com.socialnetwork.social.repository.UserRepository;
+import com.socialnetwork.social.service.BlockService;
 import com.socialnetwork.social.service.ProfileService;
 import com.socialnetwork.social.session.UserSessionRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,22 +25,31 @@ public class UserController {
     private final UserRepository userRepository;
     private final ProfileService profileService;
     private final UserSessionRegistry sessionRegistry;
+    private final BlockService blockService;
 
     @Autowired
-    public UserController(UserRepository userRepository, ProfileService profileService, UserSessionRegistry sessionRegistry) {
+    public UserController(UserRepository userRepository, ProfileService profileService, 
+                          UserSessionRegistry sessionRegistry, BlockService blockService) {
         this.userRepository = userRepository;
         this.profileService = profileService;
         this.sessionRegistry = sessionRegistry;
+        this.blockService = blockService;
     }
 
     @GetMapping("/lookup")
-    public ResponseEntity<?> lookupUser(@RequestParam String identifier) {
+    public ResponseEntity<?> lookupUser(@RequestParam String identifier, Principal principal) {
         // ۱. پیدا کردن یوزر در دیتابیس
         var userOpt = userRepository.findByEmailOrPhoneNumber(identifier);
 
         if (userOpt.isPresent()) {
             // ۲. اگر پیدا شد: تبدیل به پروفایل کامل و ارسال (200 OK)
             var user = userOpt.get();
+            
+            // چک کردن اینکه آیا جستجو کننده توسط این کاربر بلاک شده یا خیر
+            if (blockService.isBlocked(user.getUsername(), principal.getName())) {
+                return ResponseEntity.status(404).body(Map.of("error", "کاربری با این مشخصات یافت نشد."));
+            }
+
             var profile = profileService.getProfile(user.getUsername());
             return ResponseEntity.ok(profile);
         } else {
@@ -48,20 +59,24 @@ public class UserController {
     }
 
     @PostMapping("/batch-info")
-    public ResponseEntity<List<UserInfo>> batchInfo(@RequestBody BatchInfoRequest request) {
+    public ResponseEntity<List<UserInfo>> batchInfo(@RequestBody BatchInfoRequest request, Principal principal) {
+        String me = principal.getName();
         List<UserInfo> results = userRepository.findByUsernameIn(request.getUsernames())
                 .stream()
                 .map(u -> {
+                    // اگر این کاربر (u) مرا بلاک کرده باشد، اطلاعات حساس (عکس، آنلاین بودن) را فیلتر می‌کنیم
+                    boolean isBlockedByHim = blockService.isBlocked(u.getUsername(), me);
+
                     UserInfo info = new UserInfo(
                         u.getUsername(),
                         u.getFirstName(),
                         u.getLastName(),
-                        u.getProfilePictureUrl(),
-                        u.getEmail(),
-                        u.getPhoneNumber()
+                        isBlockedByHim ? null : u.getProfilePictureUrl(),
+                        isBlockedByHim ? null : u.getEmail(),
+                        isBlockedByHim ? null : u.getPhoneNumber()
                     );
-                    info.setOnline(sessionRegistry.isUserOnline(u.getUsername()));
-                    info.setLastSeen(u.getLastSeen() != null ? u.getLastSeen().toString() : null);
+                    info.setOnline(!isBlockedByHim && sessionRegistry.isUserOnline(u.getUsername()));
+                    info.setLastSeen(!isBlockedByHim && u.getLastSeen() != null ? u.getLastSeen().toString() : null);
                     return info;
                 })
                 .collect(Collectors.toList());
