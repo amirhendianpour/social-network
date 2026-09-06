@@ -108,6 +108,45 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
+    public void changePassword(String username, String oldPassword, String newPassword) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("کاربر یافت نشد."));
+
+        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("رمز عبور فعلی نادرست است.");
+        }
+
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new IllegalArgumentException("رمز عبور جدید باید حداقل ۶ کاراکتر باشد.");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    public void requestPasswordReset(String identifier) {
+        User user = userRepository.findByEmailOrPhoneNumber(identifier)
+                .orElseThrow(() -> new IllegalArgumentException("کاربری با این مشخصات یافت نشد."));
+
+        OtpChannel channel = identifier.equals(user.getPhoneNumber()) ? OtpChannel.SMS : OtpChannel.EMAIL;
+        otpService.generateAndSend(identifier, channel, OtpPurpose.PASSWORD_RESET);
+    }
+
+    public void confirmPasswordReset(String identifier, String code, String newPassword) {
+        otpService.verify(identifier, code); // چک می‌کند که کد درست باشد و برای PASSWORD_RESET باشد
+
+        User user = userRepository.findByEmailOrPhoneNumber(identifier)
+                .orElseThrow(() -> new IllegalArgumentException("کاربری با این مشخصات یافت نشد."));
+
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new IllegalArgumentException("رمز عبور جدید باید حداقل ۶ کاراکتر باشد.");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setAccountVerified(true); // اگر قبلاً فعال نبوده، الان فعال شود
+        userRepository.save(user);
+    }
+
     private AuthResponse buildAuthResponse(User user) {
         String token = jwtUtil.generateToken(user.getUsername());
         return new AuthResponse(token, user.getUsername(), user.getFirstName(), user.getLastName(),

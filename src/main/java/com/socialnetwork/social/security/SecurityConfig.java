@@ -44,6 +44,8 @@ public class SecurityConfig {
                                 "/api/auth/otp/request",
                                 "/api/auth/otp/verify",
                                 "/api/auth/login/password",
+                                "/api/auth/password/reset/request",
+                                "/api/auth/password/reset/confirm",
                                 "/api/media/upload",
                                 "/ws-chat/**",
                                 "/uploads/**"

@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.Map;
 
 @RestController
@@ -61,6 +62,36 @@ public class AuthController {
             return ResponseEntity.status(403).body(Map.of("error", e.getMessage()));
         } catch (RuntimeException e) {
             return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/password/change")
+    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request, Principal principal) {
+        try {
+            authService.changePassword(principal.getName(), request.getOldPassword(), request.getNewPassword());
+            return ResponseEntity.ok(Map.of("message", "رمز عبور با موفقیت تغییر کرد."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/password/reset/request")
+    public ResponseEntity<?> requestPasswordReset(@RequestBody PasswordResetRequest request) {
+        try {
+            authService.requestPasswordReset(request.getIdentifier());
+            return ResponseEntity.ok(Map.of("message", "کد تایید برای بازیابی رمز عبور ارسال شد."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/password/reset/confirm")
+    public ResponseEntity<?> confirmPasswordReset(@RequestBody PasswordResetConfirmRequest request) {
+        try {
+            authService.confirmPasswordReset(request.getIdentifier(), request.getCode(), request.getNewPassword());
+            return ResponseEntity.ok(Map.of("message", "رمز عبور با موفقیت بازیابی شد."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 }

@@ -1,5 +1,5 @@
 package com.socialnetwork.social.entity;
 
 public enum OtpPurpose {
-    REGISTER, LOGIN
+    REGISTER, LOGIN, PASSWORD_RESET
 }
