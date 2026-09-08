@@ -93,7 +93,8 @@ public class UserController {
                         user.getPhoneNumber(),
                         user.getPublicKey(),
                         user.getFirstName(),
-                        user.getLastName()
+                        user.getLastName(),
+                        user.getProfilePictureUrl()
                 ))
                 .collect(Collectors.toList());
 
