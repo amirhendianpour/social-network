@@ -69,7 +69,7 @@ public class AuthService {
     }
 
     public void requestOtp(String identifier) {
-        User user = userRepository.findByEmailOrPhoneNumber(identifier)
+        User user = userRepository.findByEmailOrPhoneNumberOrUsername(identifier.trim())
                 .orElseThrow(() -> new IllegalArgumentException("کاربری با این مشخصات یافت نشد."));
 
         OtpChannel channel = identifier.equals(user.getPhoneNumber()) ? OtpChannel.SMS : OtpChannel.EMAIL;
@@ -81,7 +81,7 @@ public class AuthService {
     public AuthResponse verifyOtp(String identifier, String code) {
         OtpPurpose purpose = otpService.verify(identifier, code);
 
-        User user = userRepository.findByEmailOrPhoneNumber(identifier)
+        User user = userRepository.findByEmailOrPhoneNumberOrUsername(identifier.trim())
                 .orElseThrow(() -> new IllegalArgumentException("کاربری با این مشخصات یافت نشد."));
 
         if (purpose == OtpPurpose.REGISTER) {
@@ -95,7 +95,7 @@ public class AuthService {
     }
 
     public AuthResponse loginWithPassword(String identifier, String password) {
-        User user = userRepository.findByEmailOrPhoneNumber(identifier)
+        User user = userRepository.findByEmailOrPhoneNumberOrUsername(identifier.trim())
                 .orElseThrow(() -> new IllegalArgumentException("نام کاربری یا رمز عبور نادرست است."));
 
         if (!user.isAccountVerified()) {
@@ -125,7 +125,7 @@ public class AuthService {
     }
 
     public void requestPasswordReset(String identifier) {
-        User user = userRepository.findByEmailOrPhoneNumber(identifier)
+        User user = userRepository.findByEmailOrPhoneNumberOrUsername(identifier.trim())
                 .orElseThrow(() -> new IllegalArgumentException("کاربری با این مشخصات یافت نشد."));
 
         OtpChannel channel = identifier.equals(user.getPhoneNumber()) ? OtpChannel.SMS : OtpChannel.EMAIL;
@@ -135,7 +135,7 @@ public class AuthService {
     public void confirmPasswordReset(String identifier, String code, String newPassword) {
         otpService.verify(identifier, code); // چک می‌کند که کد درست باشد و برای PASSWORD_RESET باشد
 
-        User user = userRepository.findByEmailOrPhoneNumber(identifier)
+        User user = userRepository.findByEmailOrPhoneNumberOrUsername(identifier.trim())
                 .orElseThrow(() -> new IllegalArgumentException("کاربری با این مشخصات یافت نشد."));
 
         if (newPassword == null || newPassword.length() < 6) {
