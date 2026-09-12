@@ -38,8 +38,8 @@ public class UserController {
 
     @GetMapping("/lookup")
     public ResponseEntity<?> lookupUser(@RequestParam String identifier, Principal principal) {
-        // ۱. پیدا کردن یوزر در دیتابیس
-        var userOpt = userRepository.findByEmailOrPhoneNumber(identifier);
+        // ۱. پیدا کردن یوزر در دیتابیس بر اساس ایمیل، شماره یا آیدی
+        var userOpt = userRepository.findByEmailOrPhoneNumberOrUsername(identifier.trim());
 
         if (userOpt.isPresent()) {
             // ۲. اگر پیدا شد: تبدیل به پروفایل کامل و ارسال (200 OK)
