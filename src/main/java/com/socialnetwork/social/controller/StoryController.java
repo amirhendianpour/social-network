@@ -31,4 +31,21 @@ public class StoryController {
     public ResponseEntity<List<StoryResponse>> getStories(Principal principal) {
         return ResponseEntity.ok(storyService.getActiveStories(principal.getName()));
     }
+
+    @PostMapping("/{storyId}/view")
+    public ResponseEntity<?> viewStory(@PathVariable Long storyId, Principal principal) {
+        storyService.recordView(storyId, principal.getName());
+        return ResponseEntity.ok(Map.of("message", "بازدید ثبت شد."));
+    }
+
+    @PostMapping("/{storyId}/react")
+    public ResponseEntity<?> reactToStory(@PathVariable Long storyId, @RequestParam String emoji, Principal principal) {
+        storyService.recordReaction(storyId, principal.getName(), emoji);
+        return ResponseEntity.ok(Map.of("message", "واکنش ثبت شد."));
+    }
+
+    @GetMapping("/{storyId}/viewers")
+    public ResponseEntity<?> getStoryViewers(@PathVariable Long storyId, Principal principal) {
+        return ResponseEntity.ok(storyService.getStoryViewers(storyId, principal.getName()));
+    }
 }
