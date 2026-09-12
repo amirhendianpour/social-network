@@ -135,14 +135,20 @@ public class MessageController {
 
         for (String memberName : recipientUsernames) {
             if (sessionRegistry.isUserOnline(memberName)) {
+                log.info("Sending group message from {} to online member: {}", sender, memberName);
                 messagingTemplate.convertAndSendToUser(memberName, "/queue/group-messages", chatMessage);
                 groupMessageService.markDelivered(savedMsg.getId(), memberName);
             } else {
+                log.info("Group member {} is offline. Saving offline delivery.", memberName);
                 groupMessageService.saveOfflineDelivery(savedMsg.getId(), memberName);
             }
         }
         chatMessage.setMediaKey(savedMsg.getMediaKey());
         chatMessage.setReplyToId(savedMsg.getReplyToId());
+        
+        // الگوی پیام‌رسان‌های مدرن مانند سیگنال: پیام گروهی به کل اعضا ارسال می‌شود. فرستنده اصلی نیز پیام 
+        // را به عنوان یک کپی از سرور در مسیر گروهی دریافت می‌کند تا از ثبت موفق آن در سرور مطمئن شود.
+        messagingTemplate.convertAndSendToUser(sender, "/queue/group-messages", chatMessage);
         groupMessageService.notifySenderOfStatus(savedMsg, recipientUsernames);
     }
 
