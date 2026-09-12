@@ -76,8 +76,15 @@ public class MessageService {
         }
     }
 
+    @Transactional
     public void relayReceipt(MessageReceipt receipt) {
         try {
+            // منطق امنیتی سیگنال: حذف پیام از سرور به محض تایید دریافت (DELIVERED) یا خوانده شدن (READ) توسط گیرنده
+            if (receipt.getMessageId() != null && 
+                ("DELIVERED".equals(receipt.getStatus()) || "READ".equals(receipt.getStatus()))) {
+                messageRepository.deleteByClientMessageId(receipt.getMessageId());
+            }
+
             String destination = (receipt.getGroupId() != null)
                     ? "/queue/group-receipts"
                     : "/queue/receipts";
@@ -87,9 +94,6 @@ public class MessageService {
                     destination,
                     receipt
             );
-
-            // نکته سیگنالی: اگر می‌خواهید مطمئن شوید رسید حتماً می‌رسد حتی اگر فرستنده آفلاین باشد،
-            // باید اینجا چک کنید اگر کاربر آنلاین نبود، این رسید را در دیتابیس موقت (Pending) ذخیره کنید.
         } catch (Exception e) {
             // Log error
         }

@@ -52,14 +52,16 @@ public class MessageController {
             return;
         }
 
+        // ذخیره دائمی پیام در دیتابیس (حتی اگر هر دو آنلاین باشند، برای تاریخچه چت الزامی است)
+        messageService.saveMessage(chatMessage);
+
         // ارسال به گیرنده (اگر خودش نباشد، چون در انتهای متد یک‌بار برای خودش ارسال می‌شود)
         if (!isMessageToSelf) {
             if (sessionRegistry.isUserOnline(recipient)) {
                 log.info("Sending message to online user: {}", recipient);
                 messagingTemplate.convertAndSendToUser(recipient, "/queue/messages", chatMessage);
             } else {
-                log.info("User {} is offline. Saving message and sending Push.", recipient);
-                messageService.saveMessage(chatMessage);
+                log.info("User {} is offline. Sending Push.", recipient);
                 String senderDisplayName = userRepository.findByUsername(sender)
                         .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
                         .orElse(sender);

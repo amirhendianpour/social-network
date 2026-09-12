@@ -20,6 +20,7 @@ public class ChatMessage {
     private String mediaKey;
     private boolean isForwarded = false;
 
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
     private java.time.Instant timestamp;
 
     public ChatMessage() {}
