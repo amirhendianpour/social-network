@@ -30,7 +30,6 @@ public class MessageController {
     private final MessageService messageService;
     private final GroupService groupService;
     private final GroupMessageService groupMessageService;
-    private final GroupMessageRepository groupMessageRepository;
     private final UserSessionRegistry sessionRegistry;
     private final BlockService blockService;
 
@@ -139,7 +138,7 @@ public class MessageController {
             if (sessionRegistry.isUserOnline(memberName)) {
                 log.info("Sending group message from {} to online member: {}", sender, memberName);
                 messagingTemplate.convertAndSendToUser(memberName, "/queue/group-messages", chatMessage);
-                groupMessageService.markDelivered(savedMsg.getId(), memberName);
+                // حذف شد: markDelivered باید توسط رسید کلاینت انجام شود
             } else {
                 log.info("Group member {} is offline. Saving offline delivery.", memberName);
                 groupMessageService.saveOfflineDelivery(savedMsg.getId(), memberName);
@@ -192,8 +191,10 @@ public class MessageController {
     public void processMessageEdit(@Payload ChatMessage message, Principal principal) {
         String sender = principal.getName();
         message.setSender(sender);
-        // برگشت به مسیر اصلی برای پایداری، اما با فرستنده کامل
+        // ذخیره در دیتابیس (اختیاری اگر پیام هنوز حذف نشده باشد)
+        // در اینجا فرض بر این است که کلاینت پیام را در حافظه خود دارد.
         messagingTemplate.convertAndSendToUser(message.getRecipient(), "/queue/messages", message);
+        // ارسال به تمام دستگاه‌های فرستنده
         messagingTemplate.convertAndSendToUser(sender, "/queue/messages", message);
     }
 
@@ -201,15 +202,18 @@ public class MessageController {
     public void processGroupMessageEdit(@Payload GroupChatMessage message, Principal principal) {
         String sender = principal.getName();
         message.setSender(sender);
-        groupService.getGroupMembers(message.getGroupId()).forEach(member -> {
-            messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages", message);
-        });
+        groupService.getGroupMembers(message.getGroupId()).forEach(member -> 
+            messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages", message)
+        );
     }
 
     @MessageMapping("/chat/delete")
     public void processMessageDelete(@Payload MessageDeleteDto deleteDto, Principal principal) {
+        String me = principal.getName();
         if (deleteDto.getRecipient() != null) {
             messagingTemplate.convertAndSendToUser(deleteDto.getRecipient(), "/queue/messages/delete", deleteDto);
+            // ارسال به سایر دستگاه‌های خودم
+            messagingTemplate.convertAndSendToUser(me, "/queue/messages/delete", deleteDto);
         }
     }
 
@@ -231,7 +235,7 @@ public class MessageController {
         
         // بروزرسانی وضعیت در رجیستری (در صورت نیاز به لاجیک خاص)
         if (!statusDto.isOnline()) {
-            sessionRegistry.removeSession(username);
+            sessionRegistry.removeAllSessions(username);
             Instant now = Instant.now();
             userRepository.findByUsername(username).ifPresent(user -> {
                 user.setLastSeen(now);
@@ -247,11 +251,9 @@ public class MessageController {
     @MessageMapping("/group/delete")
     public void processGroupMessageDelete(@Payload MessageDeleteDto deleteDto, Principal principal) {
         if (deleteDto.getGroupId() != null) {
-            groupService.getGroupMembers(deleteDto.getGroupId()).forEach(member -> {
-                if (!member.getUsername().equals(principal.getName())) {
-                    messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages/delete", deleteDto);
-                }
-            });
+            groupService.getGroupMembers(deleteDto.getGroupId()).stream()
+                .filter(member -> !member.getUsername().equals(principal.getName()))
+                .forEach(member -> messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages/delete", deleteDto));
         }
     }
 
@@ -260,17 +262,14 @@ public class MessageController {
         String me = principal.getName();
         dto.setSender(me);
         if (dto.getGroupId() != null) {
-            groupService.getGroupMembers(dto.getGroupId()).forEach(member -> {
-                if (!member.getUsername().equals(me)) {
-                    messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-reactions", dto);
-                }
-            });
+            groupService.getGroupMembers(dto.getGroupId()).stream()
+                .filter(member -> !member.getUsername().equals(me))
+                .forEach(member -> messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-reactions", dto));
         }
     }
 
     @MessageMapping("/group/pin")
     public void processGroupPin(@Payload PinMessageDto pinDto, Principal principal) {
-        String me = principal.getName();
         if (pinDto.getGroupId() != null) {
             groupService.getGroupMembers(pinDto.getGroupId()).forEach(member -> {
                 // ارسال به همه اعضا از جمله خود فرستنده (برای همگام‌سازی دستگاه‌ها)

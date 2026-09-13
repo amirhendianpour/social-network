@@ -203,4 +203,15 @@ public class GroupMessageService {
                 .filter(m -> clientIds.contains(m.getClientMessageId()))
                 .collect(Collectors.toList());
     }
+
+    @Transactional
+    public void handleClientReceipt(com.socialnetwork.social.dto.MessageReceipt receipt) {
+        groupMessageRepository.findByClientMessageId(receipt.getMessageId()).ifPresent(msg -> {
+            if ("READ".equals(receipt.getStatus())) {
+                markRead(msg.getId(), receipt.getSender());
+            } else if ("DELIVERED".equals(receipt.getStatus())) {
+                markDelivered(msg.getId(), receipt.getSender());
+            }
+        });
+    }
 }

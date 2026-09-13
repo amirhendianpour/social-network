@@ -18,6 +18,7 @@ public class MessageService {
 
     private final MessageRepository messageRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final GroupMessageService groupMessageService;
 
     // ذخیره پیام جدید در دیتابیس
     public void saveMessage(ChatMessage chatMessage) {
@@ -80,9 +81,14 @@ public class MessageService {
     public void relayReceipt(MessageReceipt receipt) {
         try {
             // منطق امنیتی سیگنال: حذف پیام از سرور به محض تایید دریافت (DELIVERED) یا خوانده شدن (READ) توسط گیرنده
-            if (receipt.getMessageId() != null && 
+            if (receipt.getGroupId() == null && receipt.getMessageId() != null && 
                 ("DELIVERED".equals(receipt.getStatus()) || "READ".equals(receipt.getStatus()))) {
                 messageRepository.deleteByClientMessageId(receipt.getMessageId());
+            }
+
+            if (receipt.getGroupId() != null && receipt.getMessageId() != null) {
+                // برای گروه‌ها، وضعیت را در دیتابیس گروه بروزرسانی کن
+                groupMessageService.handleClientReceipt(receipt);
             }
 
             String destination = (receipt.getGroupId() != null)

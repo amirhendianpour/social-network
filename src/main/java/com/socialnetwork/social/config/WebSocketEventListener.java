@@ -83,7 +83,7 @@ public class WebSocketEventListener {
         }
 
         if (username != null) {
-            sessionRegistry.removeSession(username);
+            sessionRegistry.removeSession(username, headerAccessor.getSessionId());
             
             Instant now = Instant.now();
             

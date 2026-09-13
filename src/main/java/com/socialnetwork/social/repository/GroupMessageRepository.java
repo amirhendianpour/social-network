@@ -4,10 +4,12 @@ import com.socialnetwork.social.entity.GroupMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface GroupMessageRepository extends JpaRepository<GroupMessage, Long> {
     List<GroupMessage> findByGroupIdOrderByTimestampAsc(Long groupId);
     List<GroupMessage> findByClientMessageIdIn(List<String> clientMessageIds);
+    Optional<GroupMessage> findByClientMessageId(String clientMessageId);
     List<GroupMessage> findAllBySender(String sender);
     void deleteBySender(String sender);
 }
