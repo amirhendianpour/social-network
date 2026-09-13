@@ -229,13 +229,18 @@ public class MessageController {
     }
 
     @MessageMapping("/chat/presence")
-    public void processPresence(@Payload UserStatusDto statusDto, Principal principal) {
+    public void processPresence(@Payload UserStatusDto statusDto, Principal principal, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
         String username = principal.getName();
-        log.info("Manual presence event from {}: online={}", username, statusDto.isOnline());
+        String sessionId = headerAccessor.getSessionId();
+        log.info("Manual presence event from {}: online={} (session: {})", username, statusDto.isOnline(), sessionId);
         
-        // بروزرسانی وضعیت در رجیستری (در صورت نیاز به لاجیک خاص)
-        if (!statusDto.isOnline()) {
-            sessionRegistry.removeAllSessions(username);
+        if (statusDto.isOnline()) {
+            // اطمینان از ثبت مجدد سشن فعلی در زمان بازگشت به اپ
+            sessionRegistry.registerSession(username, sessionId);
+        } else {
+            // هنگام رفتن به پس‌زمینه، فقط سشن فعلی را حذف کن (نه لزوماً همه سشن‌ها را)
+            sessionRegistry.removeSession(username, sessionId);
+            
             Instant now = Instant.now();
             userRepository.findByUsername(username).ifPresent(user -> {
                 user.setLastSeen(now);
