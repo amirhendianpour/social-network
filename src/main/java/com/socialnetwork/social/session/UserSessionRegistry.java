@@ -30,6 +30,11 @@ public class UserSessionRegistry {
         }
     }
 
+    // متد کمکی برای سازگاری با کدهای قدیمی یا حذف کامل سشن‌های یک کاربر
+    public void removeSession(String username) {
+        removeAllSessions(username);
+    }
+
     public void removeAllSessions(String username) {
         if (username != null) {
             userSessions.remove(username);

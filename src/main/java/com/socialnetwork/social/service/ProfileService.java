@@ -176,7 +176,7 @@ public class ProfileService {
         userRepository.delete(user);
         
         // ۹. حذف از سشن‌های آنلاین
-        sessionRegistry.removeSession(username);
+        sessionRegistry.removeAllSessions(username);
     }
 
     private void deleteOldAvatarIfLocal(String url) {
