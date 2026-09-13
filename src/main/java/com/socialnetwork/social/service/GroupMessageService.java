@@ -101,30 +101,13 @@ public class GroupMessageService {
     }
 
     private void checkAndDeleteGroupMessageIfDeliveredToAll(Long groupMessageId) {
+        // موقتاً غیرفعال شد تا مشکل عدم نمایش پیام در گروه‌ها حل شود.
+        // بعد از پایدار شدن سیستم رسیدهای تحویل (Receipts)، می‌توان این بخش را با دقت بیشتری فعال کرد.
+        /*
         groupMessageRepository.findById(groupMessageId).ifPresent(message -> {
-            // تعداد کل اعضای فعال گروه (منهای فرستنده)
-            // نکته: در یک پیاده‌سازی دقیق‌تر باید لیست اعضا در لحظه ارسال پیام را داشت
-            long memberCount = groupDeliveryRepository.countByGroupMessageId(groupMessageId); 
-            // اما چون مدل ما بر اساس رسیدهاست:
-            List<GroupMessageReceipt> receipts = receiptRepository.findByGroupMessageId(groupMessageId);
-            
-            // اگر همه کسانی که باید پیام را می‌گرفتند (چه آنلاین چه آفلاین)، آن را دریافت کرده‌اند
-            // در اینجا برای سادگی و امنیت بالا: اگر تعداد رسیدهای Delivered/Read برابر یا بیشتر از 
-            // تعداد اعضای مورد انتظار (که در لحظه ارسال تعیین شده) باشد، پیام حذف می‌شود.
-            // به عنوان یک راهکار مطمئن سیگنالی: پیام‌های گروهی بعد از مدتی (مثلا ۳۰ روز) هم باید خودکار پاک شوند.
-            
-            // فعلا: اگر پیامی توسط حداقل یک نفر دیده شد و دیگر در صف انتظار (GroupDelivery) کسی نیست:
-            if (groupDeliveryRepository.findByGroupMessageIdAndStatus(groupMessageId, "PENDING").isEmpty()) {
-                // اگر تمام اعضای آنلاین هم رسید فرستاده باشند (در notifySenderOfStatus چک می‌شود)
-                // برای امنیت حداکثری: پاک کردن بدنه پیام از دیتابیس
-                message.setContent("[DELETED FOR PRIVACY]");
-                message.setFileUrl(null);
-                groupMessageRepository.save(message);
-                
-                // و اگر بخواهیم کل رکورد را پاک کنیم (احتیاط: ممکن است برای برخی گزارش‌های کلاینت لازم باشد)
-                // groupMessageRepository.delete(message);
-            }
+            ...
         });
+        */
     }
 
     // --- جدید: محاسبه وضعیت تجمیعی یک پیام بین همه گیرندگان و اطلاع به فرستنده ---
