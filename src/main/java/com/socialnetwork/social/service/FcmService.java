@@ -23,7 +23,7 @@ public class FcmService {
     }
 
     // ارسال نوتیف پیام خصوصی به تمام دستگاه‌های ثبت‌شده‌ی یک کاربر
-    public void sendPrivateMessagePush(String recipientUsername, String senderDisplayName, String content) {
+    public void sendPrivateMessagePush(String recipientUsername, String senderUsername, String senderDisplayName, String content, String messageId) {
         if (FirebaseApp.getApps().isEmpty()) return; // اگر فایربیس تنظیم نشده، بی‌صدا رد می‌شویم
 
         List<com.socialnetwork.social.entity.FcmToken> tokens = fcmTokenRepository.findByUsername(recipientUsername);
@@ -39,7 +39,9 @@ public class FcmService {
                                         .build()
                         )
                         .putData("type", "PRIVATE_MESSAGE")
-                        .putData("senderUsername", senderDisplayName)
+                        .putData("senderUsername", senderUsername)
+                        .putData("content", content)
+                        .putData("id", messageId)
                         .build();
 
                 FirebaseMessaging.getInstance().send(message);
@@ -53,7 +55,7 @@ public class FcmService {
         }
     }
 
-    public void sendGroupMessagePush(String recipientUsername, String groupName, String senderDisplayName, String content) {
+    public void sendGroupMessagePush(String recipientUsername, Long groupId, String groupName, String senderUsername, String senderDisplayName, String content, String messageId) {
         if (FirebaseApp.getApps().isEmpty()) return;
 
         List<com.socialnetwork.social.entity.FcmToken> tokens = fcmTokenRepository.findByUsername(recipientUsername);
@@ -69,6 +71,11 @@ public class FcmService {
                                         .build()
                         )
                         .putData("type", "GROUP_MESSAGE")
+                        .putData("groupId", groupId.toString())
+                        .putData("groupName", groupName)
+                        .putData("senderUsername", senderUsername)
+                        .putData("content", content)
+                        .putData("id", messageId)
                         .build();
 
                 FirebaseMessaging.getInstance().send(message);

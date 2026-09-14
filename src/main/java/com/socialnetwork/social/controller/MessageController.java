@@ -44,31 +44,28 @@ public class MessageController {
 
         boolean isMessageToSelf = sender.equals(recipient);
 
-        // چک کردن بلاک بودن
         if (!isMessageToSelf && blockService.isBlocked(recipient, sender)) {
             log.warn("User {} is blocked by {}. Message dropped.", sender, recipient);
-            // به فرستنده خبر می‌دهیم که پیام ارسال نشد (اختیاری - معمولاً در اپ‌های چت چیزی نمی‌گویند تا معلوم نشود بلاک شده)
             return;
         }
 
-        // ذخیره دائمی پیام در دیتابیس (حتی اگر هر دو آنلاین باشند، برای تاریخچه چت الزامی است)
         messageService.saveMessage(chatMessage);
 
-        // ارسال به گیرنده (اگر خودش نباشد، چون در انتهای متد یک‌بار برای خودش ارسال می‌شود)
+        // ارسال از طریق وب‌سوکت (همیشه تلاش کن، چون سرویس اندروید ممکن است بیدار باشد)
         if (!isMessageToSelf) {
-            if (sessionRegistry.isUserOnline(recipient)) {
-                log.info("Sending message to online user: {}", recipient);
-                messagingTemplate.convertAndSendToUser(recipient, "/queue/messages", chatMessage);
-            } else {
-                log.info("User {} is offline. Sending Push.", recipient);
+            messagingTemplate.convertAndSendToUser(recipient, "/queue/messages", chatMessage);
+            
+            // اگر کاربر در وضعیت "پس‌زمینه" است (سشن وب‌سوکت باز است ولی Presence آفلاین است)،
+            // علاوه بر وب‌سوکت، پوش‌نوتیفیکیشن هم بفرست تا مطمئن شویم کاربر متوجه پیام می‌شود.
+            if (!sessionRegistry.isUserOnline(recipient)) {
+                log.info("User {} is in background/offline. Sending Push as backup.", recipient);
                 String senderDisplayName = userRepository.findByUsername(sender)
                         .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
                         .orElse(sender);
-                fcmService.sendPrivateMessagePush(recipient, senderDisplayName, chatMessage.getContent());
+                fcmService.sendPrivateMessagePush(recipient, sender, senderDisplayName, chatMessage.getContent(), chatMessage.getId());
             }
         }
 
-        // ارسال به خود فرستنده (برای همگام‌سازی سایر دستگاه‌ها و دریافت نهایی پیام در Saved Messages)
         messagingTemplate.convertAndSendToUser(sender, "/queue/messages", chatMessage);
     }
 
@@ -135,20 +132,27 @@ public class MessageController {
                 .collect(Collectors.toList());
 
         for (String memberName : recipientUsernames) {
-            if (sessionRegistry.isUserOnline(memberName)) {
-                log.info("Sending group message from {} to online member: {}", sender, memberName);
-                messagingTemplate.convertAndSendToUser(memberName, "/queue/group-messages", chatMessage);
-                // حذف شد: markDelivered باید توسط رسید کلاینت انجام شود
-            } else {
-                log.info("Group member {} is offline. Saving offline delivery.", memberName);
+            // همیشه از طریق وب‌سوکت ارسال کن (برای تحویل فوری و دو تیک شدن)
+            messagingTemplate.convertAndSendToUser(memberName, "/queue/group-messages", chatMessage);
+            
+            // اگر کاربر در پس‌زمینه است، پوش‌نوتیفیکیشن هم بفرست
+            if (!sessionRegistry.isUserOnline(memberName)) {
+                log.info("Group member {} is background/offline. Sending Push + Offline Delivery record.", memberName);
                 groupMessageService.saveOfflineDelivery(savedMsg.getId(), memberName);
+                
+                String groupName = groupService.getGroupById(groupId).getName();
+                String senderDisplayName = userRepository.findByUsername(sender)
+                        .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
+                        .orElse(sender);
+                
+                fcmService.sendGroupMessagePush(memberName, groupId, groupName, sender, senderDisplayName, chatMessage.getContent(), chatMessage.getId());
+            } else {
+                groupMessageService.markDelivered(savedMsg.getId(), memberName);
             }
         }
         chatMessage.setMediaKey(savedMsg.getMediaKey());
         chatMessage.setReplyToId(savedMsg.getReplyToId());
         
-        // الگوی پیام‌رسان‌های مدرن مانند سیگنال: پیام گروهی به کل اعضا ارسال می‌شود. فرستنده اصلی نیز پیام 
-        // را به عنوان یک کپی از سرور در مسیر گروهی دریافت می‌کند تا از ثبت موفق آن در سرور مطمئن شود.
         messagingTemplate.convertAndSendToUser(sender, "/queue/group-messages", chatMessage);
         groupMessageService.notifySenderOfStatus(savedMsg, recipientUsernames);
     }
@@ -232,13 +236,15 @@ public class MessageController {
     public void processPresence(@Payload UserStatusDto statusDto, Principal principal, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
         String username = principal.getName();
         String sessionId = headerAccessor.getSessionId();
-        log.info("Manual presence event from {}: online={} (session: {})", username, statusDto.isOnline(), sessionId);
+        log.info("UI Presence event from {}: online={} (session: {})", username, statusDto.isOnline(), sessionId);
         
         if (statusDto.isOnline()) {
-            // اطمینان از ثبت مجدد سشن فعلی در زمان بازگشت به اپ
+            // کاربر وارد اپلیکیشن شد -> سشن را در لیست "آنلاین‌های فعال" ثبت کن
             sessionRegistry.registerSession(username, sessionId);
         } else {
-            // هنگام رفتن به پس‌زمینه، فقط سشن فعلی را حذف کن (نه لزوماً همه سشن‌ها را)
+            // کاربر از اپلیکیشن خارج شد -> سشن را از لیست "آنلاین‌های فعال" حذف کن
+            // این کار باعث می‌شود متد isUserOnline مقدار false برگرداند و پوش‌نوتیفیکیشن ارسال شود.
+            // توجه: اتصال وب‌سوکت همچنان باز می‌ماند و پیام‌ها ارسال می‌شوند.
             sessionRegistry.removeSession(username, sessionId);
             
             Instant now = Instant.now();
