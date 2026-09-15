@@ -88,8 +88,10 @@ public class StoryService {
                 .filter(s -> {
                     User creator = s.getCreator();
                     if (creator.getUsername().equals(username)) return true;
-                    // Security Privacy Check: Only creators who have this user in their contacts can share stories with them
-                    return contactRepository.existsByUserAndContactUser(creator, currentUser);
+                    // Signal behavior: You can see the story of a creator if that creator is in YOUR contacts, OR if you both are in each other's contacts.
+                    // Let's make it intuitive: if the current user has the creator as a contact, show the story.
+                    return contactRepository.existsByUserAndContactUser(currentUser, creator) || 
+                           contactRepository.existsByUserAndContactUser(creator, currentUser);
                 })
                 .map(s -> mapToResponse(s, currentUser))
                 .collect(Collectors.toList());
