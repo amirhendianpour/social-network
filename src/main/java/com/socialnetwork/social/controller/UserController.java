@@ -26,14 +26,17 @@ public class UserController {
     private final ProfileService profileService;
     private final UserSessionRegistry sessionRegistry;
     private final BlockService blockService;
+    private final com.socialnetwork.social.repository.ContactRepository contactRepository;
 
     @Autowired
     public UserController(UserRepository userRepository, ProfileService profileService, 
-                          UserSessionRegistry sessionRegistry, BlockService blockService) {
+                          UserSessionRegistry sessionRegistry, BlockService blockService,
+                          com.socialnetwork.social.repository.ContactRepository contactRepository) {
         this.userRepository = userRepository;
         this.profileService = profileService;
         this.sessionRegistry = sessionRegistry;
         this.blockService = blockService;
+        this.contactRepository = contactRepository;
     }
 
     @GetMapping("/lookup")
@@ -84,8 +87,19 @@ public class UserController {
     }
 
     @PostMapping("/contacts/sync")
-    public ResponseEntity<List<ContactResponse>> syncContacts(@RequestBody ContactSyncRequest request) {
+    public ResponseEntity<List<ContactResponse>> syncContacts(@RequestBody ContactSyncRequest request, Principal principal) {
         List<User> registeredUsers = userRepository.findByPhoneNumberIn(request.getPhoneNumbers());
+
+        if (principal != null) {
+            User me = userRepository.findByUsername(principal.getName()).orElse(null);
+            if (me != null) {
+                for (User contactUser : registeredUsers) {
+                    if (!contactUser.equals(me) && !contactRepository.existsByUserAndContactUser(me, contactUser)) {
+                        contactRepository.save(new com.socialnetwork.social.entity.Contact(me, contactUser));
+                    }
+                }
+            }
+        }
 
         List<ContactResponse> contacts = registeredUsers.stream()
                 .map(user -> new ContactResponse(

@@ -23,6 +23,7 @@ public class StoryService {
     private final ProfileService profileService; // Use for file cleanup logic if needed
 
     private final com.socialnetwork.social.repository.StoryInteractionRepository interactionRepository;
+    private final com.socialnetwork.social.repository.ContactRepository contactRepository;
 
     public void postStory(String username, String mediaUrl, String caption, String type) {
         User user = userRepository.findByUsername(username)
@@ -52,6 +53,8 @@ public class StoryService {
                     .orElse(new com.socialnetwork.social.entity.StoryInteraction(story, viewer));
             if ("❤️".equals(emoji)) {
                 interaction.setLiked(true);
+            } else {
+                interaction.setLiked(false);
             }
             interaction.setReactionEmoji(emoji);
             interactionRepository.save(interaction);
@@ -77,11 +80,18 @@ public class StoryService {
     }
 
     public List<StoryResponse> getActiveStories(String username) {
-        // Logic: Get stories of self and active contacts
-        // For simplicity, we return all active stories except blocked ones
+        User currentUser = userRepository.findByUsername(username).orElse(null);
+        if (currentUser == null) return List.of();
+
         return storyRepository.findAll().stream()
                 .filter(s -> s.getExpiresAt().isAfter(Instant.now()))
-                .map(this::mapToResponse)
+                .filter(s -> {
+                    User creator = s.getCreator();
+                    if (creator.getUsername().equals(username)) return true;
+                    // Security Privacy Check: Only creators who have this user in their contacts can share stories with them
+                    return contactRepository.existsByUserAndContactUser(creator, currentUser);
+                })
+                .map(s -> mapToResponse(s, currentUser))
                 .collect(Collectors.toList());
     }
 
@@ -91,7 +101,11 @@ public class StoryService {
         storyRepository.deleteAllByExpiresAtBefore(Instant.now());
     }
 
-    private StoryResponse mapToResponse(Story s) {
+    private StoryResponse mapToResponse(Story s, User currentUser) {
+        var interactionOpt = interactionRepository.findByStoryAndViewer(s, currentUser);
+        boolean liked = interactionOpt.map(com.socialnetwork.social.entity.StoryInteraction::isLiked).orElse(false);
+        String reactionEmoji = interactionOpt.map(com.socialnetwork.social.entity.StoryInteraction::getReactionEmoji).orElse(null);
+
         return new StoryResponse(
                 s.getId(),
                 s.getCreator().getUsername(),
@@ -100,7 +114,9 @@ public class StoryService {
                 s.getMediaUrl(),
                 s.getCaption(),
                 s.getMediaType(),
-                s.getCreatedAt()
+                s.getCreatedAt(),
+                liked,
+                reactionEmoji
         );
     }
 }

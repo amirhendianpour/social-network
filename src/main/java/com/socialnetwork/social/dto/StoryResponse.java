@@ -18,4 +18,6 @@ public class StoryResponse {
     private String caption;
     private String mediaType;
     private Instant createdAt;
+    private boolean liked;
+    private String reactionEmoji;
 }
