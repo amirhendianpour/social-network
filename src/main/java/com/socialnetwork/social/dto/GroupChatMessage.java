@@ -1,6 +1,7 @@
 package com.socialnetwork.social.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -18,7 +19,10 @@ public class GroupChatMessage {
     private String fileUrl;
     private String replyToId;
     private String mediaKey;
+
+    @JsonProperty("isForwarded")
     private boolean isForwarded = false;
+
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private java.time.Instant timestamp;
 
