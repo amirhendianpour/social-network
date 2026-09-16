@@ -35,6 +35,7 @@ public class MessageService {
         message.setReplyToId(chatMessage.getReplyToId());
         message.setMediaKey(chatMessage.getMediaKey());
         message.setForwarded(chatMessage.isForwarded());
+        message.setEdited(chatMessage.isEdited());
 
         messageRepository.save(message);
     }
@@ -57,6 +58,7 @@ public class MessageService {
                     dto.setReplyToId(msg.getReplyToId());
                     dto.setMediaKey(msg.getMediaKey());
                     dto.setForwarded(msg.isForwarded());
+                    dto.setEdited(msg.isEdited());
                     dto.setTimestamp(msg.getTimestamp());
                     return dto;
                 })

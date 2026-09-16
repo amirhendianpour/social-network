@@ -195,6 +195,7 @@ public class MessageController {
     public void processMessageEdit(@Payload ChatMessage message, Principal principal) {
         String sender = principal.getName();
         message.setSender(sender);
+        message.setEdited(true);
         // ذخیره در دیتابیس (اختیاری اگر پیام هنوز حذف نشده باشد)
         // در اینجا فرض بر این است که کلاینت پیام را در حافظه خود دارد.
         messagingTemplate.convertAndSendToUser(message.getRecipient(), "/queue/messages", message);
@@ -206,6 +207,7 @@ public class MessageController {
     public void processGroupMessageEdit(@Payload GroupChatMessage message, Principal principal) {
         String sender = principal.getName();
         message.setSender(sender);
+        message.setEdited(true);
         groupService.getGroupMembers(message.getGroupId()).forEach(member -> 
             messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-messages", message)
         );

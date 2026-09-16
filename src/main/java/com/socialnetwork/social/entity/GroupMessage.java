@@ -33,6 +33,9 @@ public class GroupMessage {
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean isForwarded = false;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isEdited = false;
+
     private Instant timestamp;
 
     public GroupMessage() {}

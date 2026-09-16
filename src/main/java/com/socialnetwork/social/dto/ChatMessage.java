@@ -23,6 +23,9 @@ public class ChatMessage {
     @JsonProperty("isForwarded")
     private boolean isForwarded = false;
 
+    @JsonProperty("isEdited")
+    private boolean isEdited = false;
+
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private java.time.Instant timestamp;
 
