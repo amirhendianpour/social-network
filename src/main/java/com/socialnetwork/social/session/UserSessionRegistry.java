@@ -93,4 +93,13 @@ public class UserSessionRegistry {
     public boolean isUserOnline(String username) {
         return isUserSociallyOnline(username);
     }
+
+    public void removeAllSessions(String username) {
+        if (username != null) {
+            socketSessions.remove(username);
+            foregroundSessions.remove(username);
+            cancelPendingBroadcast(username);
+            System.out.println("All Sessions Removed for user: " + username);
+        }
+    }
 }
