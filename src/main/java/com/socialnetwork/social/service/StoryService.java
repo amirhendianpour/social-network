@@ -51,12 +51,13 @@ public class StoryService {
         if (story != null && viewer != null) {
             var interaction = interactionRepository.findByStoryAndViewer(story, viewer)
                     .orElse(new com.socialnetwork.social.entity.StoryInteraction(story, viewer));
-            if ("❤️".equals(emoji)) {
+            if ("LIKE".equals(emoji)) {
                 interaction.setLiked(true);
-            } else {
+            } else if ("UNLIKE".equals(emoji)) {
                 interaction.setLiked(false);
+            } else {
+                interaction.setReactionEmoji(emoji);
             }
-            interaction.setReactionEmoji(emoji);
             interactionRepository.save(interaction);
         }
     }
