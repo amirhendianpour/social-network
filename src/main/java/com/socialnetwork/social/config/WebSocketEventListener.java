@@ -39,17 +39,16 @@ public class WebSocketEventListener {
 
         if (user != null) {
             String username = user.getName();
-            sessionRegistry.registerSession(username, headerAccessor.getSessionId());
+            sessionRegistry.registerSocket(username, headerAccessor.getSessionId());
 
             // *** نکته مهم: ذخیره یوزرنیم برای استفاده در Disconnect ***
             if (headerAccessor.getSessionAttributes() != null) {
                 headerAccessor.getSessionAttributes().put("username", username);
             }
-
-            // اطلاع‌رسانی آنلاین شدن
-            UserStatusDto status = new UserStatusDto(username, true, null);
-            messagingTemplate.convertAndSend("/topic/user-status", status);
-            log.info("User {} connected, broadcasted ONLINE status", username);
+            
+            // در اینجا آنلاین بودن (Presence) را Broadcast نمی‌کنیم.
+            // منتظر می‌مانیم تا کلاینت سیگنال Foreground بفرستد.
+            log.info("User {} socket connected (waiting for foreground signal)", username);
         }
     }
 
@@ -83,20 +82,26 @@ public class WebSocketEventListener {
         }
 
         if (username != null) {
-            sessionRegistry.removeSession(username, headerAccessor.getSessionId());
+            final String finalUsername = username;
+            sessionRegistry.removeSocket(finalUsername, headerAccessor.getSessionId());
             
-            Instant now = Instant.now();
-            
-            // ذخیره در دیتابیس
-            userRepository.findByUsername(username).ifPresent(user -> {
-                user.setLastSeen(now);
-                userRepository.save(user);
-            });
+            // اگر بعد از قطع سوکت، هیچ دستگاهی در Foreground نبود، با تاخیر وضعیت آفلاین پخش شود
+            if (!sessionRegistry.isUserSociallyOnline(finalUsername)) {
+                sessionRegistry.scheduleOfflineBroadcast(finalUsername, () -> {
+                    // چک مجدد بعد از ۵ ثانیه: شاید کاربر سریعاً دوباره وصل شده باشد
+                    if (!sessionRegistry.isUserSociallyOnline(finalUsername)) {
+                        Instant now = Instant.now();
+                        userRepository.findByUsername(finalUsername).ifPresent(user -> {
+                            user.setLastSeen(now);
+                            userRepository.save(user);
+                        });
 
-            // اطلاع‌رسانی آفلاین شدن بلافاصله
-            UserStatusDto status = new UserStatusDto(username, false, now.toString());
-            messagingTemplate.convertAndSend("/topic/user-status", status);
-            log.info("User {} disconnected, broadcasted OFFLINE status with lastSeen={}", username, now);
+                        UserStatusDto status = new UserStatusDto(finalUsername, false, now.toString());
+                        messagingTemplate.convertAndSend("/topic/user-status", status);
+                        log.info("User {} socket closed, broadcasted OFFLINE (after grace period)", finalUsername);
+                    }
+                });
+            }
         }
     }
 }

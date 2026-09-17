@@ -236,29 +236,40 @@ public class MessageController {
 
     @MessageMapping("/chat/presence")
     public void processPresence(@Payload UserStatusDto statusDto, Principal principal, org.springframework.messaging.simp.SimpMessageHeaderAccessor headerAccessor) {
-        String username = principal.getName();
+        final String username = principal.getName();
         String sessionId = headerAccessor.getSessionId();
         log.info("UI Presence event from {}: online={} (session: {})", username, statusDto.isOnline(), sessionId);
         
         if (statusDto.isOnline()) {
-            // کاربر وارد اپلیکیشن شد -> سشن را در لیست "آنلاین‌های فعال" ثبت کن
-            sessionRegistry.registerSession(username, sessionId);
+            // کاربر وارد اپلیکیشن شد (Foreground)
+            boolean newlySociallyOnline = sessionRegistry.markForeground(username, sessionId);
+            if (newlySociallyOnline) {
+                statusDto.setOnline(true);
+                messagingTemplate.convertAndSend("/topic/user-status", statusDto);
+                log.info("Broadcasted ONLINE for {} (entered foreground)", username);
+            }
         } else {
-            // کاربر از اپلیکیشن خارج شد -> سشن را از لیست "آنلاین‌های فعال" حذف کن
-            // این کار باعث می‌شود متد isUserOnline مقدار false برگرداند و پوش‌نوتیفیکیشن ارسال شود.
-            // توجه: اتصال وب‌سوکت همچنان باز می‌ماند و پیام‌ها ارسال می‌شوند.
-            sessionRegistry.removeSession(username, sessionId);
+            // کاربر از اپلیکیشن خارج شد (Background)
+            sessionRegistry.markBackground(username, sessionId);
             
-            Instant now = Instant.now();
-            userRepository.findByUsername(username).ifPresent(user -> {
-                user.setLastSeen(now);
-                userRepository.save(user);
-            });
-            statusDto.setLastSeen(now.toString());
+            // اگر هیچ دستگاهی در Foreground نبود، با ۵ ثانیه تاخیر وضعیت آفلاین پخش شود
+            if (!sessionRegistry.isUserSociallyOnline(username)) {
+                sessionRegistry.scheduleOfflineBroadcast(username, () -> {
+                    // چک مجدد بعد از ۵ ثانیه
+                    if (!sessionRegistry.isUserSociallyOnline(username)) {
+                        Instant now = Instant.now();
+                        userRepository.findByUsername(username).ifPresent(user -> {
+                            user.setLastSeen(now);
+                            userRepository.save(user);
+                        });
+                        
+                        UserStatusDto offlineDto = new UserStatusDto(username, false, now.toString());
+                        messagingTemplate.convertAndSend("/topic/user-status", offlineDto);
+                        log.info("Broadcasted OFFLINE for {} (after grace period)", username);
+                    }
+                });
+            }
         }
-
-        // پخش وضعیت برای همه
-        messagingTemplate.convertAndSend("/topic/user-status", statusDto);
     }
 
     @MessageMapping("/group/delete")
