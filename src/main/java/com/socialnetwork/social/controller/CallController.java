@@ -1,8 +1,11 @@
 package com.socialnetwork.social.controller;
 
 import com.socialnetwork.social.dto.CallSignal;
+import com.socialnetwork.social.repository.UserRepository;
+import com.socialnetwork.social.service.FcmService;
 import com.socialnetwork.social.session.UserSessionRegistry;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -10,30 +13,37 @@ import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 
+@Slf4j
 @Controller
+@RequiredArgsConstructor
 public class CallController {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final UserSessionRegistry sessionRegistry;
-
-    @Autowired
-    public CallController(SimpMessagingTemplate messagingTemplate, UserSessionRegistry sessionRegistry) {
-        this.messagingTemplate = messagingTemplate;
-        this.sessionRegistry = sessionRegistry;
-    }
+    private final FcmService fcmService;
+    private final UserRepository userRepository;
 
     @MessageMapping("/call/offer")
     public void handleOffer(@Payload CallSignal signal, Principal principal) {
-        signal.setFrom(principal.getName());
+        String from = principal.getName();
+        signal.setFrom(from);
+        String to = signal.getTo();
 
-        if (sessionRegistry.isUserOnline(signal.getTo())) {
-            messagingTemplate.convertAndSendToUser(signal.getTo(), "/queue/call", signal);
+        log.info("Call offer from {} to {}", from, to);
+
+        // ۱. اگر سوکت گیرنده متصل است، سیگنال را مستقیم بفرست
+        if (sessionRegistry.isSocketConnected(to)) {
+            messagingTemplate.convertAndSendToUser(to, "/queue/call", signal);
         } else {
-            CallSignal busy = new CallSignal();
-            busy.setType("BUSY");
-            busy.setFrom(signal.getTo());
-            busy.setCallId(signal.getCallId());
-            messagingTemplate.convertAndSendToUser(signal.getFrom(), "/queue/call", busy);
+            // ۲. اگر سوکت قطع است، پوش‌نوتیفیکیشن بفرست تا اپلیکیشن بیدار شود (مشابه واتساپ)
+            log.info("User {} socket disconnected. Sending Call Push.", to);
+            String senderDisplayName = userRepository.findByUsername(from)
+                    .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
+                    .orElse(from);
+            
+            fcmService.sendCallPush(to, from, senderDisplayName, signal.getCallId(), signal.getCallType(), signal.getSdp());
+            
+            // در این مرحله به فرستنده فعلاً BUSY نمی‌گوییم، چون منتظریم اپلیکیشن گیرنده بیدار شود و وصل شود.
         }
     }
 

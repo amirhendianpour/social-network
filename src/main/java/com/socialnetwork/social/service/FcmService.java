@@ -85,4 +85,36 @@ public class FcmService {
             }
         }
     }
+
+    public void sendCallPush(String recipientUsername, String senderUsername, String senderDisplayName, String callId, String callType, String sdp) {
+        if (FirebaseApp.getApps().isEmpty()) return;
+
+        List<com.socialnetwork.social.entity.FcmToken> tokens = fcmTokenRepository.findByUsername(recipientUsername);
+
+        for (com.socialnetwork.social.entity.FcmToken tokenEntity : tokens) {
+            try {
+                Message message = Message.builder()
+                        .setToken(tokenEntity.getToken())
+                        .putData("type", "CALL")
+                        .putData("title", "تماس ورودی")
+                        .putData("body", senderDisplayName)
+                        .putData("senderUsername", senderUsername)
+                        .putData("senderDisplayName", senderDisplayName)
+                        .putData("callId", callId)
+                        .putData("callType", callType) // AUDIO or VIDEO
+                        .putData("sdp", sdp != null ? sdp : "")
+                        .setAndroidConfig(com.google.firebase.messaging.AndroidConfig.builder()
+                                .setPriority(com.google.firebase.messaging.AndroidConfig.Priority.HIGH)
+                                .build())
+                        .build();
+
+                FirebaseMessaging.getInstance().send(message);
+            } catch (FirebaseMessagingException e) {
+                if (e.getMessagingErrorCode() != null &&
+                        e.getMessagingErrorCode().name().equals("UNREGISTERED")) {
+                    fcmTokenRepository.deleteByToken(tokenEntity.getToken());
+                }
+            }
+        }
+    }
 }
