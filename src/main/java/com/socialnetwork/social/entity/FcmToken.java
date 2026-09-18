@@ -21,6 +21,11 @@ public class FcmToken {
     @Column(unique = true, length = 512)
     private String token;
 
+    private String deviceName;
+    private String deviceModel;
+    private String osVersion;
+    private String ipAddress;
+
     private LocalDateTime updatedAt;
 
     public FcmToken() {}
@@ -28,6 +33,16 @@ public class FcmToken {
     public FcmToken(String username, String token) {
         this.username = username;
         this.token = token;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public FcmToken(String username, String token, String deviceName, String deviceModel, String osVersion, String ipAddress) {
+        this.username = username;
+        this.token = token;
+        this.deviceName = deviceName;
+        this.deviceModel = deviceModel;
+        this.osVersion = osVersion;
+        this.ipAddress = ipAddress;
         this.updatedAt = LocalDateTime.now();
     }
 

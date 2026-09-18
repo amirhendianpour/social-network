@@ -7,5 +7,7 @@ import lombok.Setter;
 @Getter
 public class FcmTokenRequest {
     private String token;
-
+    private String deviceName;
+    private String deviceModel;
+    private String osVersion;
 }
