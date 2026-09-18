@@ -24,29 +24,28 @@ public class FcmService {
 
     // ارسال نوتیف پیام خصوصی به تمام دستگاه‌های ثبت‌شده‌ی یک کاربر
     public void sendPrivateMessagePush(String recipientUsername, String senderUsername, String senderDisplayName, String content, String messageId) {
-        if (FirebaseApp.getApps().isEmpty()) return; // اگر فایربیس تنظیم نشده، بی‌صدا رد می‌شویم
+        if (FirebaseApp.getApps().isEmpty()) return;
 
         List<com.socialnetwork.social.entity.FcmToken> tokens = fcmTokenRepository.findByUsername(recipientUsername);
 
         for (com.socialnetwork.social.entity.FcmToken tokenEntity : tokens) {
             try {
+                // تبدیل به Data Message با اولویت بالا برای بیدار کردن اپلیکیشن در پس‌زمینه (مشابه واتساپ)
                 Message message = Message.builder()
                         .setToken(tokenEntity.getToken())
-                        .setNotification(
-                                Notification.builder()
-                                        .setTitle(senderDisplayName)
-                                        .setBody(content)
-                                        .build()
-                        )
                         .putData("type", "PRIVATE_MESSAGE")
+                        .putData("title", senderDisplayName)
+                        .putData("body", content)
                         .putData("senderUsername", senderUsername)
                         .putData("content", content)
                         .putData("id", messageId)
+                        .setAndroidConfig(com.google.firebase.messaging.AndroidConfig.builder()
+                                .setPriority(com.google.firebase.messaging.AndroidConfig.Priority.HIGH)
+                                .build())
                         .build();
 
                 FirebaseMessaging.getInstance().send(message);
             } catch (FirebaseMessagingException e) {
-                // اگر توکن دیگر معتبر نیست (اپ حذف شده)، آن را از دیتابیس پاک می‌کنیم
                 if (e.getMessagingErrorCode() != null &&
                         e.getMessagingErrorCode().name().equals("UNREGISTERED")) {
                     fcmTokenRepository.deleteByToken(tokenEntity.getToken());
@@ -64,18 +63,17 @@ public class FcmService {
             try {
                 Message message = Message.builder()
                         .setToken(tokenEntity.getToken())
-                        .setNotification(
-                                Notification.builder()
-                                        .setTitle(groupName)
-                                        .setBody(senderDisplayName + ": " + content)
-                                        .build()
-                        )
                         .putData("type", "GROUP_MESSAGE")
+                        .putData("title", groupName)
+                        .putData("body", senderDisplayName + ": " + content)
                         .putData("groupId", groupId.toString())
                         .putData("groupName", groupName)
                         .putData("senderUsername", senderUsername)
                         .putData("content", content)
                         .putData("id", messageId)
+                        .setAndroidConfig(com.google.firebase.messaging.AndroidConfig.builder()
+                                .setPriority(com.google.firebase.messaging.AndroidConfig.Priority.HIGH)
+                                .build())
                         .build();
 
                 FirebaseMessaging.getInstance().send(message);
