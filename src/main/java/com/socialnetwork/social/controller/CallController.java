@@ -31,20 +31,18 @@ public class CallController {
 
         log.info("Call offer from {} to {}", from, to);
 
-        // ۱. اگر سوکت گیرنده متصل است، سیگنال را مستقیم بفرست
+        // ۱. اگر سوکت گیرنده متصل است، سیگنال را روی سوکت ارسال کن
         if (sessionRegistry.isSocketConnected(to)) {
             messagingTemplate.convertAndSendToUser(to, "/queue/call", signal);
-        } else {
-            // ۲. اگر سوکت قطع است، پوش‌نوتیفیکیشن بفرست تا اپلیکیشن بیدار شود (مشابه واتساپ)
-            log.info("User {} socket disconnected. Sending Call Push.", to);
-            String senderDisplayName = userRepository.findByUsername(from)
-                    .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
-                    .orElse(from);
-            
-            fcmService.sendCallPush(to, from, senderDisplayName, signal.getCallId(), signal.getCallType(), signal.getSdp());
-            
-            // در این مرحله به فرستنده فعلاً BUSY نمی‌گوییم، چون منتظریم اپلیکیشن گیرنده بیدار شود و وصل شود.
         }
+
+        // ۲. همیشه پوش‌نوتیفیکیشن تماس را هم ارسال کن تا سیستم‌عامل اندروید دستگاه گیرنده را بیدار کند و زنگ بزند
+        log.info("Sending Call Push to recipient {}", to);
+        String senderDisplayName = userRepository.findByUsername(from)
+                .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
+                .orElse(from);
+        
+        fcmService.sendCallPush(to, from, senderDisplayName, signal.getCallId(), signal.getCallType(), signal.getSdp());
     }
 
     @MessageMapping("/call/answer")
