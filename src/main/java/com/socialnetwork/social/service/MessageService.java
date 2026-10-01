@@ -41,12 +41,12 @@ public class MessageService {
     }
 
     // واکشی پیام‌ها و تبدیل آنها به DTO همراه با شناسه اصلی کلاینت
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ChatMessage> getUnreadMessages(String username) {
 
         List<Message> messages = messageRepository.findByRecipient(username);
 
-        List<ChatMessage> result = messages.stream()
+        return messages.stream()
                 .map(msg -> {
                     ChatMessage dto = new ChatMessage();
                     dto.setId(msg.getClientMessageId());
@@ -63,20 +63,12 @@ public class MessageService {
                     return dto;
                 })
                 .collect(Collectors.toList());
-
-        if (!messages.isEmpty()) {
-            messageRepository.deleteAll(messages);
-        }
-
-        return result;
     }
 
     @Transactional
     public void markAsRead(String username) {
-        List<Message> messages = messageRepository.findByRecipient(username);
-        if (!messages.isEmpty()) {
-            messageRepository.deleteAll(messages);
-        }
+        // پیام‌ها در دیتابیس حفظ می‌شوند تا زمانی که کلاینت برای هر پیام
+        // رسید DELIVERED یا READ را از طریق relayReceipt ارسال کند.
     }
 
     @Transactional
