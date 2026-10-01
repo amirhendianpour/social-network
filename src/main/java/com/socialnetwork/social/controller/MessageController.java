@@ -51,19 +51,18 @@ public class MessageController {
 
         messageService.saveMessage(chatMessage);
 
-        // ارسال از طریق وب‌سوکت (همیشه تلاش کن، چون سرویس اندروید ممکن است بیدار باشد)
         if (!isMessageToSelf) {
+            // ۱. ارسال از طریق وب‌سوکت برای تحویل آنی اگر UI فعال باشد
             messagingTemplate.convertAndSendToUser(recipient, "/queue/messages", chatMessage);
             
-            // اگر کاربر در وضعیت "پس‌زمینه" است (سشن وب‌سوکت باز است ولی Presence آفلاین است)،
-            // علاوه بر وب‌سوکت، پوش‌نوتیفیکیشن هم بفرست تا مطمئن شویم کاربر متوجه پیام می‌شود.
-            if (!sessionRegistry.isUserOnline(recipient)) {
-                log.info("User {} is in background/offline. Sending Push as backup.", recipient);
-                String senderDisplayName = userRepository.findByUsername(sender)
-                        .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
-                        .orElse(sender);
-                fcmService.sendPrivateMessagePush(recipient, sender, senderDisplayName, chatMessage.getContent(), chatMessage.getId());
-            }
+            // ۲. ارسال پوش‌نوتیفیکیشن FCM به عنوان پشتیبان کامل
+            // همیشه پوش‌نوتیفیکیشن را بفرست تا حتی اگر سوکت معلق باشد، اپلیکیشن بسته‌شده یا در حالت Doze باشد،
+            // سیستم‌عامل نوتیفیکیشن را فوراً در نوار وضعیت نمایش دهد.
+            log.info("Sending FCM Push Notification for message to recipient {}", recipient);
+            String senderDisplayName = userRepository.findByUsername(sender)
+                    .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
+                    .orElse(sender);
+            fcmService.sendPrivateMessagePush(recipient, sender, senderDisplayName, chatMessage.getContent(), chatMessage.getId());
         }
 
         messagingTemplate.convertAndSendToUser(sender, "/queue/messages", chatMessage);
@@ -75,7 +74,6 @@ public class MessageController {
         List<ChatMessage> offlineMessages = messageService.getUnreadMessages(username);
         log.info("Sending {} offline messages to user: {}", offlineMessages.size(), username);
         for (ChatMessage msg : offlineMessages) {
-            // در اینجا هم بهتر است چک کنیم مبادا کسی را بلاک کرده باشد و پیام‌های زمان آفلاینی او هنوز مانده باشد
             if (!blockService.isBlocked(username, msg.getSender())) {
                 messagingTemplate.convertAndSendToUser(username, "/queue/messages", msg);
                 MessageReceipt receipt = new MessageReceipt(msg.getId(), username, msg.getSender(), "DELIVERED", null);
@@ -89,7 +87,6 @@ public class MessageController {
     public void processReceipt(@Payload MessageReceipt receipt, Principal principal) {
         String me = principal.getName();
         receipt.setSender(me);
-        // اگر گیرنده رسید، فرستنده را بلاک کرده باشد، رسید رد شود
         if (receipt.getRecipient() != null && blockService.isBlocked(receipt.getRecipient(), me)) {
             return;
         }
@@ -101,7 +98,7 @@ public class MessageController {
         String me = principal.getName();
         typingEvent.setSender(me);
         String recipient = typingEvent.getRecipient();
-        if (!blockService.isBlocked(recipient, me) && sessionRegistry.isUserOnline(recipient)) {
+        if (!blockService.isBlocked(recipient, me) && sessionRegistry.isUserSociallyOnline(recipient)) {
             messagingTemplate.convertAndSendToUser(recipient, "/queue/typing", typingEvent);
         }
     }
@@ -131,24 +128,25 @@ public class MessageController {
                 .filter(u -> !u.equals(sender))
                 .collect(Collectors.toList());
 
+        String groupName = groupService.getGroupById(groupId).getName();
+        String senderDisplayName = userRepository.findByUsername(sender)
+                .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
+                .orElse(sender);
+
         for (String memberName : recipientUsernames) {
-            // همیشه از طریق وب‌سوکت ارسال کن (برای تحویل فوری و دو تیک شدن)
+            // ۱. همیشه از طریق وب‌سوکت ارسال کن
             messagingTemplate.convertAndSendToUser(memberName, "/queue/group-messages", chatMessage);
             
-            // اگر کاربر در پس‌زمینه است، پوش‌نوتیفیکیشن هم بفرست
-            if (!sessionRegistry.isUserOnline(memberName)) {
-                log.info("Group member {} is background/offline. Sending Push + Offline Delivery record.", memberName);
+            // ۲. ثبت وضعیت تحویل یا آفلاین
+            if (!sessionRegistry.isUserSociallyOnline(memberName)) {
+                log.info("Group member {} is background/offline. Saving Offline Delivery record.", memberName);
                 groupMessageService.saveOfflineDelivery(savedMsg.getId(), memberName);
-                
-                String groupName = groupService.getGroupById(groupId).getName();
-                String senderDisplayName = userRepository.findByUsername(sender)
-                        .map(u -> (u.getFirstName() + " " + u.getLastName()).trim())
-                        .orElse(sender);
-                
-                fcmService.sendGroupMessagePush(memberName, groupId, groupName, sender, senderDisplayName, chatMessage.getContent(), chatMessage.getId());
             } else {
                 groupMessageService.markDelivered(savedMsg.getId(), memberName);
             }
+
+            // ۳. همیشه پوش‌نوتیفیکیشن گروهی را هم ارسال کن
+            fcmService.sendGroupMessagePush(memberName, groupId, groupName, sender, senderDisplayName, chatMessage.getContent(), chatMessage.getId());
         }
         chatMessage.setMediaKey(savedMsg.getMediaKey());
         chatMessage.setReplyToId(savedMsg.getReplyToId());
@@ -196,10 +194,7 @@ public class MessageController {
         String sender = principal.getName();
         message.setSender(sender);
         message.setEdited(true);
-        // ذخیره در دیتابیس (اختیاری اگر پیام هنوز حذف نشده باشد)
-        // در اینجا فرض بر این است که کلاینت پیام را در حافظه خود دارد.
         messagingTemplate.convertAndSendToUser(message.getRecipient(), "/queue/messages", message);
-        // ارسال به تمام دستگاه‌های فرستنده
         messagingTemplate.convertAndSendToUser(sender, "/queue/messages", message);
     }
 
@@ -218,7 +213,6 @@ public class MessageController {
         String me = principal.getName();
         if (deleteDto.getRecipient() != null) {
             messagingTemplate.convertAndSendToUser(deleteDto.getRecipient(), "/queue/messages/delete", deleteDto);
-            // ارسال به سایر دستگاه‌های خودم
             messagingTemplate.convertAndSendToUser(me, "/queue/messages/delete", deleteDto);
         }
     }
@@ -229,7 +223,6 @@ public class MessageController {
         log.info("Message pin event from {} for message {}: pinned={}", sender, pinDto.getMessageId(), pinDto.isPinned());
         if (pinDto.getRecipient() != null) {
             messagingTemplate.convertAndSendToUser(pinDto.getRecipient(), "/queue/pin", pinDto);
-            // ارسال به خود فرستنده برای همگام‌سازی سایر دستگاه‌ها
             messagingTemplate.convertAndSendToUser(sender, "/queue/pin", pinDto);
         }
     }
@@ -255,7 +248,6 @@ public class MessageController {
             // اگر هیچ دستگاهی در Foreground نبود، با ۵ ثانیه تاخیر وضعیت آفلاین پخش شود
             if (!sessionRegistry.isUserSociallyOnline(username)) {
                 sessionRegistry.scheduleOfflineBroadcast(username, () -> {
-                    // چک مجدد بعد از ۵ ثانیه
                     if (!sessionRegistry.isUserSociallyOnline(username)) {
                         Instant now = Instant.now();
                         userRepository.findByUsername(username).ifPresent(user -> {
@@ -296,7 +288,6 @@ public class MessageController {
     public void processGroupPin(@Payload PinMessageDto pinDto, Principal principal) {
         if (pinDto.getGroupId() != null) {
             groupService.getGroupMembers(pinDto.getGroupId()).forEach(member -> {
-                // ارسال به همه اعضا از جمله خود فرستنده (برای همگام‌سازی دستگاه‌ها)
                 messagingTemplate.convertAndSendToUser(member.getUsername(), "/queue/group-pin", pinDto);
             });
         }
